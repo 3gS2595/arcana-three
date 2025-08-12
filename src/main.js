@@ -1,33 +1,34 @@
+// src/main.js
 import { THREE } from './core/three.js';
 import { createApp } from './core/app.js';
 import { buildSkyDome } from './env/sky.js';
 import { buildGrassPatch } from './env/grassPatch.js';
-import { createDeckTextures } from './cards/textures.js';
 import { createSystem } from './sim/system.js';
 import { updateHeartFrame } from './sim/heart.js';
 import { initUI } from './ui/panel.js';
 import { CARD_H } from './cards/mesh.js';
+import { loadImageDeck } from './cards/imageDeck.js';
 import { FrameBorderOverlay } from './overlay/frameBorderOverlay.js';
 
 const container = document.getElementById('renderer');
 const overlay   = document.getElementById('overlay');
 const { scene, camera, renderer, controls } = createApp(container, overlay);
 
-// Overlay
+// Overlay frame (HUD) — normals + texture blend
 const frameOverlay = new FrameBorderOverlay({
   url: '/assets/overlay.glb',
-  // keep vertical margin as-is (e.g., 6%), halve horizontal to 3%
   marginV: 0.01,
   marginH: 0.01,
   distance: 2.0,
   renderOnTop: true,
-  scalingMode: 'stretch', // <- matches the window ratio (portrait/landscape)
-    lighting: 'normals' // <- NEW mode
-
+  scalingMode: 'stretch',
+  lighting: 'normals',     // show texture blended with normals
+  mixStrength: 0.6         // 0=only texture, 1=only normals
 });
 await frameOverlay.load();
 frameOverlay.addTo(scene);
 
+// Robust resize using ResizeObserver (works in grid/flex containers)
 const ro = new ResizeObserver(entries => {
   for (const entry of entries) {
     const { width, height } = entry.contentRect;
@@ -45,13 +46,13 @@ scene.add(sky);
 const grassPatch = buildGrassPatch({ radius: 3.8, bladeCount: 5000, groundRepeat: 7 });
 scene.add(grassPatch);
 
-// Cards & sim
-const { deck, back } = createDeckTextures();
+// Load image deck & system (ONE CARD PER IMAGE)
+const imageDeck = await loadImageDeck('/assets/images/');
 const trails = new THREE.Group();
 scene.add(trails);
-const system = createSystem(scene, trails, deck, back);
+const system = createSystem(scene, trails, imageDeck);
 
-// --- ONE-TIME initial framing (camera looks straight-on; grass just below heart) ---
+// One-time initial placement (camera & grass)
 function initialPlaceCameraAndGrass(occupancy = 0.60) {
   updateHeartFrame(camera);
 
@@ -59,26 +60,21 @@ function initialPlaceCameraAndGrass(occupancy = 0.60) {
   if (!bounds) return;
 
   const { center, size, minY, maxY } = bounds;
-  const count = system.cards?.length ?? 0;
-
-  // Use precise lowest world-space point on the heart
   const bottomP = system.getHeartBottomWorld && system.getHeartBottomWorld();
   const bx = bottomP ? bottomP.x : center.x;
   const by = bottomP ? bottomP.y : minY;
   const bz = bottomP ? bottomP.z : center.z;
 
-  // Place grass just BELOW that point (small, scale-aware gap)
   const heartH = Math.max(size.y, 1e-4);
-  const gap    = 0.08 * heartH + 0.008 * Math.sqrt(Math.max(1, count)) * CARD_H;
+  const gap = 0.10 * heartH + 0.008 * Math.sqrt(Math.max(1, imageDeck.length)) * CARD_H;
+
   grassPatch.position.set(bx, by - gap, bz);
   grassPatch.scale.set(1, 1, 1);
 
-  // One-time straight-on camera frame so (heart top .. grass) ≈ occupancy of viewport height
-  const vFOV    = THREE.MathUtils.degToRad(camera.fov);
+  const vFOV = THREE.MathUtils.degToRad(camera.fov);
   const halfTan = Math.tan(vFOV / 2);
-  const spanH   = (maxY - (by - gap));
-  const spanW   = Math.max(size.x, 1e-4);
-
+  const spanH = (maxY - (by - gap));
+  const spanW = Math.max(size.x, 1e-4);
   const distH = spanH / (2 * halfTan * occupancy);
   const distW = spanW / (2 * halfTan * camera.aspect * occupancy);
   const distance = Math.max(distH, distW) * 1.05;
@@ -89,53 +85,72 @@ function initialPlaceCameraAndGrass(occupancy = 0.60) {
   camera.updateProjectionMatrix();
 }
 
-
-
-
-// UI
-const ui = initUI();
-ui.onInput(() => {
-  // Only update heart targets; do not touch camera or controls here
-  system.prepareHeartTargets(ui.values().count);
-});
-
-// Initial pool + one-time framing
-system.ensureCardCount(ui.values().count, ui.values().power);
-initialPlaceCameraAndGrass(0.60);
-
-
+// Keep grass under current bottom of heart every frame (with dead-zone + Y-only smoothing)
+const _grassState = {
+  prevTarget: new THREE.Vector3(0, 0, 0),
+  initialized: false
+};
 function updateGrassUnderHeart() {
   const bounds = system.getHeartBoundsWorld && system.getHeartBoundsWorld();
   const bottom = system.getHeartBottomWorld && system.getHeartBottomWorld();
   if (!bounds || !bottom) return;
 
-  const count = system.cards?.length ?? 0;
-  // scale-aware gap so grass never intersects
   const heartH = Math.max(bounds.size.y, 1e-4);
-  const gap    = 0.08 * heartH + 0.008 * Math.sqrt(Math.max(1, count)) * CARD_H;
+  const gap = 0.10 * heartH + 0.008 * Math.sqrt(Math.max(1, imageDeck.length)) * CARD_H;
 
-  // optional smoothing to avoid micro-jitter as the heart eases
   const target = new THREE.Vector3(bottom.x, bottom.y - gap, bottom.z);
-  grassPatch.position.lerp(target, 0.25); // 0.25 = ease factor; set to 1 for instant
+
+  // Dead-zone: ignore tiny jitter under ~2mm
+  const DEAD = 0.002 * heartH;
+  const dx = Math.abs(target.x - _grassState.prevTarget.x);
+  const dz = Math.abs(target.z - _grassState.prevTarget.z);
+  const dy = Math.abs(target.y - _grassState.prevTarget.y);
+
+  if (!_grassState.initialized) {
+    grassPatch.position.copy(target);
+    _grassState.prevTarget.copy(target);
+    _grassState.initialized = true;
+    return;
+  }
+
+  const newPos = grassPatch.position.clone();
+
+  // X/Z snap only if movement is significant to avoid lateral “swim”
+  if (dx > DEAD) newPos.x = THREE.MathUtils.lerp(newPos.x, target.x, 0.3);
+  if (dz > DEAD) newPos.z = THREE.MathUtils.lerp(newPos.z, target.z, 0.3);
+
+  // Y always smooth (slightly stronger to avoid overlap)
+  newPos.y = THREE.MathUtils.lerp(newPos.y, target.y, 0.35);
+
+  grassPatch.position.copy(newPos);
+  _grassState.prevTarget.copy(target);
 }
 
-// Render loop (NO camera fitting here)
+// UI (count ignored — one card per image)
+const ui = initUI();
+ui.onInput(() => {
+  system.prepareHeartTargets(); // deck length drives targets
+});
+
+// Init pool & frame once
+system.ensureCardCount(ui.values().power);
+initialPlaceCameraAndGrass(0.60);
+
+// Render loop
 const clock = new THREE.Clock();
 function render() {
   const dt = Math.min(0.033, clock.getDelta());
   controls.update();
-  updateHeartFrame(camera);          // plane faces the current camera
-  frameOverlay.update(camera);       // HUD frame fits current aspect/fov
+  updateHeartFrame(camera);
+  frameOverlay.update(camera);
   system.step(dt, ui.values(), camera);
-
-  updateGrassUnderHeart();           // <— keep grass under the true bottom
-
+  updateGrassUnderHeart();
   renderer.render(scene, camera);
   requestAnimationFrame(render);
 }
 render();
 
-// Reset button (do not re-aim camera)
+// Reset
 document.getElementById('resetBtn').addEventListener('click', () => {
   system.reset(ui.values().power);
 });

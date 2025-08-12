@@ -1,8 +1,20 @@
-// frameBorderOverlay.js
+// src/overlay/frameBorderOverlay.js
 import { THREE } from '../core/three.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 export class FrameBorderOverlay {
+  /**
+   * @param {Object} opts
+   * @param {string}  opts.url
+   * @param {number}  opts.margin
+   * @param {number}  opts.marginH
+   * @param {number}  opts.marginV
+   * @param {number}  opts.distance
+   * @param {boolean} opts.renderOnTop
+   * @param {'stretch'|'uniform'} opts.scalingMode
+   * @param {'unlit'|'keep'|'normals'} opts.lighting
+   * @param {number}  opts.mixStrength   // only for 'normals' mode (0..1)
+   */
   constructor({
     url,
     margin = 0.06,
@@ -11,16 +23,17 @@ export class FrameBorderOverlay {
     distance = 2.0,
     renderOnTop = true,
     scalingMode = 'stretch',
-    // NEW: choose lighting behavior for the overlay
-    lighting = 'unlit', // 'unlit' | 'keep'
+    lighting = 'unlit',
+    mixStrength = 0.5
   } = {}) {
     this.url = url;
-    this.marginH = (marginH ?? margin) * 0.5;
+    this.marginH = (marginH ?? margin) * 0.5; // side margins 50% smaller by default
     this.marginV = (marginV ?? margin);
     this.distance = distance;
     this.renderOnTop = renderOnTop;
     this.scalingMode = scalingMode;
     this.lighting = lighting;
+    this.mixStrength = THREE.MathUtils.clamp(mixStrength, 0, 1);
 
     this.group = new THREE.Group();
     this.group.name = 'FrameBorderOverlay';
@@ -38,84 +51,90 @@ export class FrameBorderOverlay {
 
     this.model = gltf.scene || gltf.scenes?.[0];
 
-    // ---- STATIC (SCENE-INDEPENDENT) LOOK ----
-this.model.traverse(obj => {
-  if (!obj.isMesh) return;
+    this.model.traverse(obj => {
+      if (!obj.isMesh) return;
 
-  obj.frustumCulled = false;
-  obj.renderOrder = 9999;
+      obj.frustumCulled = false;
+      obj.renderOrder = 9999;
 
-  if (this.lighting === 'unlit') {
-    // Existing unlit logic...
-    const src = obj.material;
-    const dst = new THREE.MeshBasicMaterial({
-      color: (src?.color) ? src.color.clone() : new THREE.Color(0xffffff),
-      map: src?.map ?? null,
-      transparent: !!src?.transparent,
-      opacity: (typeof src?.opacity === 'number') ? src.opacity : 1,
-      side: src?.side ?? THREE.FrontSide,
-      alphaTest: src?.alphaTest ?? 0,
-      depthTest: this.renderOnTop ? false : true,
-      depthWrite: this.renderOnTop ? false : src?.depthWrite ?? true,
-      fog: false,
-      toneMapped: false,
-      vertexColors: !!src?.vertexColors,
-    });
-    if (dst.map && 'colorSpace' in dst.map) dst.map.colorSpace = THREE.SRGBColorSpace;
-    obj.material = dst;
+      if (this.lighting === 'unlit') {
+        const src = obj.material;
+        const mat = new THREE.MeshBasicMaterial({
+          color: (src?.color) ? src.color.clone() : new THREE.Color(0xffffff),
+          map: src?.map ?? null,
+          transparent: !!src?.transparent || !!src?.alphaMap,
+          opacity: (typeof src?.opacity === 'number') ? src.opacity : 1,
+          side: src?.side ?? THREE.FrontSide,
+          alphaTest: src?.alphaTest ?? 0,
+          depthTest: this.renderOnTop ? false : true,
+          depthWrite: this.renderOnTop ? false : (src?.depthWrite ?? true),
+          fog: false,
+          toneMapped: false,
+          vertexColors: !!src?.vertexColors
+        });
+        if (mat.map && 'colorSpace' in mat.map) mat.map.colorSpace = THREE.SRGBColorSpace;
+        obj.material = mat;
 
-  } else if (this.lighting === 'normals') {
-    const src = obj.material;
-    const tex = src?.map ?? null;
-    if (tex && 'colorSpace' in tex) tex.colorSpace = THREE.SRGBColorSpace;
+      } else if (this.lighting === 'normals') {
+        const src = obj.material;
+        const map = src?.map ?? null;
+        if (map && 'colorSpace' in map) map.colorSpace = THREE.SRGBColorSpace;
 
-    obj.material = new THREE.ShaderMaterial({
-      uniforms: {
-        map: { value: tex },
-        mixStrength: { value: 0.5 } // 0 = only texture, 1 = only normals
-      },
-      vertexShader: `
-        varying vec3 vNormal;
-        varying vec2 vUv;
-        void main() {
-          vNormal = normalize(normalMatrix * normal);
-          vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        const uniforms = {
+          map: { value: map },
+          useMap: { value: !!map },
+          mixStrength: { value: this.mixStrength } // 0 = only texture, 1 = only normals
+        };
+
+        const vert = `
+          varying vec3 vNormal;
+          varying vec2 vUv;
+          void main() {
+            vNormal = normalize(normalMatrix * normal);
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `;
+
+        const frag = `
+          uniform sampler2D map;
+          uniform bool useMap;
+          uniform float mixStrength;
+          varying vec3 vNormal;
+          varying vec2 vUv;
+
+          void main() {
+            vec3 normalColor = normalize(vNormal) * 0.5 + 0.5;
+            vec3 texColor = useMap ? texture2D(map, vUv).rgb : vec3(1.0);
+            vec3 finalColor = mix(texColor, normalColor, mixStrength);
+            gl_FragColor = vec4(finalColor, 1.0);
+          }
+        `;
+
+        const mat = new THREE.ShaderMaterial({
+          uniforms,
+          vertexShader: vert,
+          fragmentShader: frag,
+          transparent: !!src?.transparent || !!src?.alphaMap,
+          depthTest: this.renderOnTop ? false : true,
+          depthWrite: this.renderOnTop ? false : (src?.depthWrite ?? true)
+        });
+
+        obj.material = mat;
+
+      } else {
+        // 'keep' — still render on top if requested
+        if (this.renderOnTop && obj.material) {
+          obj.material = obj.material.clone();
+          obj.material.depthTest = false;
+          obj.material.depthWrite = false;
+          obj.material.fog = false;
+          if ('toneMapped' in obj.material) obj.material.toneMapped = false;
         }
-      `,
-      fragmentShader: `
-        uniform sampler2D map;
-        uniform float mixStrength;
-        varying vec3 vNormal;
-        varying vec2 vUv;
-
-        void main() {
-          vec3 normalColor = normalize(vNormal) * 0.5 + 0.5;
-          vec3 texColor = texture2D(map, vUv).rgb;
-          vec3 finalColor = mix(texColor, normalColor, mixStrength);
-          gl_FragColor = vec4(finalColor, 1.0);
-        }
-      `,
-      transparent: !!src?.transparent,
-      depthTest: this.renderOnTop ? false : true,
-      depthWrite: this.renderOnTop ? false : src?.depthWrite ?? true,
+      }
     });
-  } 
-  
-  else {
-    // 'keep'
-    if (this.renderOnTop && obj.material) {
-      obj.material = obj.material.clone();
-      obj.material.depthTest = false;
-      obj.material.depthWrite = false;
-      obj.material.fog = false;
-      if ('toneMapped' in obj.material) obj.material.toneMapped = false;
-    }
-  }
-});
 
-
-    // Center the frame around origin in X/Y for clean scaling
+    // Center pivot in X/Y
     const bbox = new THREE.Box3().setFromObject(this.model);
     const center = new THREE.Vector3();
     bbox.getCenter(center);
@@ -124,7 +143,7 @@ this.model.traverse(obj => {
     this.pivot.add(this.model);
     this.model.position.sub(new THREE.Vector3(center.x, center.y, 0));
 
-    // Cache native size ONCE (avoid feedback scaling)
+    // Cache native (unscaled) size once
     this.pivot.updateMatrixWorld(true);
     const nativeBox = new THREE.Box3().setFromObject(this.pivot);
     const nativeSize = new THREE.Vector3();
@@ -136,10 +155,20 @@ this.model.traverse(obj => {
     this._loaded = true;
   }
 
+  setMixStrength(v) {
+    this.mixStrength = THREE.MathUtils.clamp(v, 0, 1);
+    // update all shader materials if in 'normals' mode
+    if (!this._loaded || this.lighting !== 'normals') return;
+    this.group.traverse(o => {
+      if (o.isMesh && o.material && o.material.uniforms && 'mixStrength' in o.material.uniforms) {
+        o.material.uniforms.mixStrength.value = this.mixStrength;
+      }
+    });
+  }
+
   update(camera) {
     if (!this._loaded) return;
 
-    // Position in front of camera, face camera
     const dir = new THREE.Vector3();
     camera.getWorldDirection(dir);
     const camPos = camera.getWorldPosition(new THREE.Vector3());
@@ -148,12 +177,10 @@ this.model.traverse(obj => {
     this.group.position.copy(targetPos);
     this.group.quaternion.copy(camera.quaternion);
 
-    // Compute visible viewport at this depth
     const vFov = THREE.MathUtils.degToRad(camera.fov);
     const viewportHeight = 2 * Math.tan(vFov / 2) * this.distance;
     const viewportWidth  = viewportHeight * camera.aspect;
 
-    // Target box with margins (smaller horizontal margins as requested)
     const wTarget = viewportWidth  * (1 - 2 * this.marginH);
     const hTarget = viewportHeight * (1 - 2 * this.marginV);
 

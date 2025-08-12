@@ -1,35 +1,38 @@
+// src/sim/system.js
 import { THREE } from '../core/three.js';
-import { makeCardMesh } from '../cards/mesh.js';
-import { makeTrail, updateTrail } from './trails.js';
+import { makeImageCardMesh } from '../cards/mesh.js';
+import { makeTrail, updateTrail, clearTrail } from './trails.js';
 import { generateHeartPoints, heartLocalToWorld, heartFrame } from './heart.js';
 
-const rng = (min,max) => min + Math.random()*(max-min);
+const rng = (min, max) => min + Math.random() * (max - min);
 const GRAVITY = new THREE.Vector3(0, -9.8, 0);
 const DRAG = 0.12;
 const FLOOR_Y = 0.02;
 const emitterPos = new THREE.Vector3(0, 1.0, 0);
 
+// Billboard behavior
 const BILLBOARD_MODE = 'capped'; // 'instant' | 'capped'
-const BILLBOARD_MAX_DEG_PER_SEC = 240; // only used when mode='capped'
+const BILLBOARD_MAX_DEG_PER_SEC = 240;
 
-export function createSystem(scene, trailsGroup, deckTextures, backTexture) {
+export function createSystem(scene, trailsGroup, imageDeck /* [{texture, aspect}] */) {
   const cards = [];
   let heartTargets = [];
+  const deck = imageDeck || [];
 
-  // Tunables for the continuous easing behavior
-  const HOMING_POS_SPEED = 2.5;   // higher = snappier position follow
-  const HOMING_ROT_SPEED = 3.0;   // higher = snappier rotation follow
-  const MOVE_EPS = 0.0006;        // squared distance threshold for trail point add
+  // Continuous homing tunables
+  const HOMING_POS_SPEED = 2.5;
+  const MOVE_EPS = 0.0006;
 
-  function spawnCard(obj, power=50) {
+  function spawnCard(obj, power = 50) {
     if (obj.group.parent !== scene) scene.add(obj.group);
-    obj.group.position.copy(emitterPos).add(new THREE.Vector3(rng(-0.05,0.05), 0, rng(-0.05,0.05)));
+
+    obj.group.position.copy(emitterPos).add(new THREE.Vector3(rng(-0.05, 0.05), 0, rng(-0.05, 0.05)));
     obj.velocity.set(
-      rng(-0.6, 0.6) * (0.6 + power/100),
-      rng(6.5, 10.0) * (0.8 + power/70),
-      rng(-0.6, 0.6) * (0.6 + power/100)
+      rng(-0.6, 0.6) * (0.6 + power / 100),
+      rng(6.5, 10.0) * (0.8 + power / 70),
+      rng(-0.6, 0.6) * (0.6 + power / 100)
     );
-    obj.angular.set(rng(-2,2), rng(-2,2), rng(-2,2));
+    obj.angular.set(rng(-2, 2), rng(-2, 2), rng(-2, 2));
     obj.age = 0; obj.alive = true; obj.group.scale.setScalar(0.05); obj.opacity = 0.0;
     obj.trail.userData.count = 0; obj.trail.geometry.setDrawRange(0, 0);
     obj.state = 'flying';
@@ -37,11 +40,19 @@ export function createSystem(scene, trailsGroup, deckTextures, backTexture) {
     obj.prevPos.copy(obj.group.position);
   }
 
-  function ensureCardCount(n, power) {
+  // EXACTLY one card per image
+  function ensureCardCount(power) {
+    const n = deck.length;
+
     while (cards.length < n) {
-      const group = makeCardMesh(deckTextures, backTexture);
+      const i = cards.length;
+      const entry = deck[i];
+      const built = makeImageCardMesh(entry?.texture, entry?.aspect ?? 1.0);
+      const group = built.group;
+
       const trail = makeTrail(0xff0000, 40);
       trailsGroup.add(trail); scene.add(group);
+
       const obj = {
         group, trail,
         velocity: new THREE.Vector3(),
@@ -55,38 +66,32 @@ export function createSystem(scene, trailsGroup, deckTextures, backTexture) {
       spawnCard(obj, power);
       cards.push(obj);
     }
+
     while (cards.length > n) {
       const obj = cards.pop();
       if (obj.group.parent) obj.group.parent.remove(obj.group);
       trailsGroup.remove(obj.trail);
     }
+
     heartTargets = generateHeartPoints(n);
     for (let i = 0; i < cards.length; i++) {
       cards[i].targetLocal = heartTargets[i % heartTargets.length].clone();
     }
   }
 
-  // Make the card face the camera; if capped, limit angular speed
   function billboardTowardCamera(obj, camera, dt) {
-    // Desired orientation: look at camera with an "up" aligned to the heart plane
     const target = new THREE.Object3D();
     target.position.copy(obj.group.position);
-    target.up.copy(heartFrame.up);           // lock roll so cards stay upright in the heart plane
+    target.up.copy(heartFrame.up);
     target.lookAt(camera.position);
-
     const qTarget = target.quaternion;
 
     if (BILLBOARD_MODE === 'instant') {
       obj.group.quaternion.copy(qTarget);
       return;
     }
-
-    // mode === 'capped' : slerp with max angular velocity
     const qCurrent = obj.group.quaternion;
-    const angle = 2 * Math.acos(THREE.MathUtils.clamp(
-      Math.abs(qCurrent.dot(qTarget)), 0, 1
-    )); // radians in [0..π]
-
+    const angle = 2 * Math.acos(THREE.MathUtils.clamp(Math.abs(qCurrent.dot(qTarget)), 0, 1));
     if (angle < 1e-4) {
       obj.group.quaternion.copy(qTarget);
       return;
@@ -96,25 +101,23 @@ export function createSystem(scene, trailsGroup, deckTextures, backTexture) {
     obj.group.quaternion.slerp(qTarget, t);
   }
 
-  function prepareHeartTargets(n) {
-    heartTargets = generateHeartPoints(n ?? cards.length);
+  function prepareHeartTargets() {
+    const n = deck.length;
+    heartTargets = generateHeartPoints(n);
     for (let i = 0; i < cards.length; i++) {
       cards[i].targetLocal = heartTargets[i % heartTargets.length].clone();
     }
   }
 
   function homeTowards(obj, targetWorld, dt) {
-    // smooth positional follow
     const posFactor = 1 - Math.exp(-dt * HOMING_POS_SPEED);
     obj.group.position.lerp(targetWorld, posFactor);
-
-    // gentle damping to kill residual spin/velocity without freezing
     obj.velocity.multiplyScalar(0.85);
     obj.angular.multiplyScalar(0.85);
   }
-  
-  function step(dt, { count, power, spin, showPaths }, camera) {
-    if (count !== cards.length) ensureCardCount(count, power);
+
+  function step(dt, { power, spin, showPaths }, camera) {
+    ensureCardCount(power);
 
     for (const obj of cards) {
       if (!obj.alive) spawnCard(obj, power);
@@ -158,35 +161,34 @@ export function createSystem(scene, trailsGroup, deckTextures, backTexture) {
       } else if (obj.state === 'homing') {
         const targetWorld = heartLocalToWorld(obj.targetLocal);
         homeTowards(obj, targetWorld, dt);
-        // billboard while homing so faces camera during the turn
         billboardTowardCamera(obj, camera, dt);
       }
 
-      obj.trail.visible = showPaths;
-      if (showPaths ) updateTrail(obj);
+      // TRAILS
       if (showPaths) {
-        // Only add a point if the card actually moved a bit
-        if (obj.prevPos.distanceToSquared(obj.group.position) > MOVE_EPS) {
-          updateTrail(obj);
-          obj.prevPos.copy(obj.group.position);
+        obj.trail.visible = true;
+        const moved = obj.prevPos.distanceToSquared(obj.group.position) > MOVE_EPS;
+        updateTrail(obj, dt, moved, camera);
+        if (moved) obj.prevPos.copy(obj.group.position);
+      } else {
+        if (obj.trail.visible) {
+          clearTrail(obj);
         }
+        obj.trail.visible = false;
       }
     }
-    return false; // never "ended"
+    return false;
   }
 
   function reset(power) {
-    const n = cards.length;
-    heartTargets = generateHeartPoints(n);
+    heartTargets = generateHeartPoints(deck.length);
     cards.forEach((c, i) => {
       c.targetLocal = heartTargets[i % heartTargets.length].clone();
       c.state = 'flying';
       c.opacity = 0;
       c.alive = true;
-      c.trail.userData.count = 0;
-      c.trail.geometry.setDrawRange(0, 0);
+      clearTrail(c);
       c.trail.visible = true;
-      // move back to scene for re-emission
       if (c.group.parent !== scene) {
         scene.add(c.group);
         c.group.quaternion.identity();
@@ -196,15 +198,12 @@ export function createSystem(scene, trailsGroup, deckTextures, backTexture) {
     });
   }
 
-  // World-space bounds of the *intended* heart (from targets, not cards)
   function getHeartBoundsWorld() {
-    if (!heartTargets || heartTargets.length === 0) {
-      return null;
-    }
+    const n = heartTargets?.length || 0;
+    if (!n) return null;
     const min = new THREE.Vector3(+Infinity, +Infinity, +Infinity);
     const max = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
-
-    for (let i = 0; i < heartTargets.length; i++) {
+    for (let i = 0; i < n; i++) {
       const p = heartLocalToWorld(heartTargets[i]);
       if (p.x < min.x) min.x = p.x;
       if (p.y < min.y) min.y = p.y;
@@ -213,23 +212,22 @@ export function createSystem(scene, trailsGroup, deckTextures, backTexture) {
       if (p.y > max.y) max.y = p.y;
       if (p.z > max.z) max.z = p.z;
     }
-
     const center = new THREE.Vector3().addVectors(min, max).multiplyScalar(0.5);
-    const size   = new THREE.Vector3().subVectors(max, min);
-    const radius = 0.5 * Math.max(size.x, size.y, size.z);
-
-    return { center, size, radius, minY: min.y, maxY: max.y, min, max };
+    const size = new THREE.Vector3().subVectors(max, min);
+    return { center, size, minY: min.y, maxY: max.y, min, max };
   }
 
   function getHeartBottomWorld() {
-    if (!heartTargets || heartTargets.length === 0) return null;
+    const n = heartTargets?.length || 0;
+    if (!n) return null;
     let minY = Infinity;
     let best = null;
-    for (let i = 0; i < heartTargets.length; i++) {
+    for (let i = 0; i < n; i++) {
       const p = heartLocalToWorld(heartTargets[i]);
       if (p.y < minY) { minY = p.y; best = p; }
     }
     return best ? best.clone() : null;
   }
+
   return { cards, step, reset, ensureCardCount, prepareHeartTargets, getHeartBoundsWorld, getHeartBottomWorld };
 }
