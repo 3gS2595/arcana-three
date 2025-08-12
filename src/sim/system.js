@@ -221,5 +221,15 @@ export function createSystem(scene, trailsGroup, deckTextures, backTexture) {
     return { center, size, radius, minY: min.y, maxY: max.y, min, max };
   }
 
-  return { cards, step, reset, ensureCardCount, prepareHeartTargets, getHeartBoundsWorld };
+  function getHeartBottomWorld() {
+    if (!heartTargets || heartTargets.length === 0) return null;
+    let minY = Infinity;
+    let best = null;
+    for (let i = 0; i < heartTargets.length; i++) {
+      const p = heartLocalToWorld(heartTargets[i]);
+      if (p.y < minY) { minY = p.y; best = p; }
+    }
+    return best ? best.clone() : null;
+  }
+  return { cards, step, reset, ensureCardCount, prepareHeartTargets, getHeartBoundsWorld, getHeartBottomWorld };
 }

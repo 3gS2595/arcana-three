@@ -21,20 +21,22 @@ const frameOverlay = new FrameBorderOverlay({
   marginH: 0.01,
   distance: 2.0,
   renderOnTop: true,
-  scalingMode: 'stretch' // <- matches the window ratio (portrait/landscape)
+  scalingMode: 'stretch', // <- matches the window ratio (portrait/landscape)
+    lighting: 'normals' // <- NEW mode
+
 });
 await frameOverlay.load();
 frameOverlay.addTo(scene);
 
-// Add near the top of main.js after you have `container`, `renderer`, and `camera`
-function hardResize() {
-  const w = container.clientWidth || window.innerWidth;
-  const h = container.clientHeight || window.innerHeight;
-  renderer.setSize(w, h, false);
-  camera.aspect = w / h;
-  camera.updateProjectionMatrix();
-}
-window.addEventListener('resize', hardResize);
+const ro = new ResizeObserver(entries => {
+  for (const entry of entries) {
+    const { width, height } = entry.contentRect;
+    renderer.setSize(width, height, false);
+    camera.aspect = width / Math.max(1, height);
+    camera.updateProjectionMatrix();
+  }
+});
+ro.observe(container);
 
 // Environment
 const sky = buildSkyDome({ radius: 800 });
@@ -51,7 +53,6 @@ const system = createSystem(scene, trails, deck, back);
 
 // --- ONE-TIME initial framing (camera looks straight-on; grass just below heart) ---
 function initialPlaceCameraAndGrass(occupancy = 0.60) {
-  // Make sure bounds reflect the current camera-facing heart plane
   updateHeartFrame(camera);
 
   const bounds = system.getHeartBoundsWorld && system.getHeartBoundsWorld();
@@ -60,36 +61,35 @@ function initialPlaceCameraAndGrass(occupancy = 0.60) {
   const { center, size, minY, maxY } = bounds;
   const count = system.cards?.length ?? 0;
 
-  // --- Place grass just below the heart bottom (no scaling) ---
-  // Gap scales with heart height and (gently) with card count so it never intersects
-  const heartH   = Math.max(size.y, 1e-4);
-  const gapBase  = 0.450 * heartH;                 // 10% of heart height
-  const gapCount = 0.012 * Math.sqrt(Math.max(1, count)) * CARD_H; // tiny lift for more cards
-  const gap      = gapBase + gapCount;
+  // Use precise lowest world-space point on the heart
+  const bottomP = system.getHeartBottomWorld && system.getHeartBottomWorld();
+  const bx = bottomP ? bottomP.x : center.x;
+  const by = bottomP ? bottomP.y : minY;
+  const bz = bottomP ? bottomP.z : center.z;
 
-  const grassY = minY - gap;
-  grassPatch.position.set(center.x, grassY, center.z);
-  grassPatch.scale.set(1, 1, 1); // ensure no leftover scaling
+  // Place grass just BELOW that point (small, scale-aware gap)
+  const heartH = Math.max(size.y, 1e-4);
+  const gap    = 0.08 * heartH + 0.008 * Math.sqrt(Math.max(1, count)) * CARD_H;
+  grassPatch.position.set(bx, by - gap, bz);
+  grassPatch.scale.set(1, 1, 1);
 
-  // --- One-time camera frame so (heart top .. grass plane) ~ 60% of window height ---
-  // We keep the camera straight-on (+Z), and aim at the HEART CENTER (free OrbitControls after)
+  // One-time straight-on camera frame so (heart top .. grass) ≈ occupancy of viewport height
   const vFOV    = THREE.MathUtils.degToRad(camera.fov);
   const halfTan = Math.tan(vFOV / 2);
+  const spanH   = (maxY - (by - gap));
+  const spanW   = Math.max(size.x, 1e-4);
 
-  const spanH = (maxY - grassY);              // vertical span we want in view
-  const spanW = Math.max(size.x, 1e-4);       // horizontal span (heart width)
-
-  // Distance required so span fills `occupancy` of the viewport
   const distH = spanH / (2 * halfTan * occupancy);
   const distW = spanW / (2 * halfTan * camera.aspect * occupancy);
-  const distance = Math.max(distH, distW) * 1.05; // tiny safety margin
+  const distance = Math.max(distH, distW) * 1.05;
 
-  // Aim once at the heart center; look straight on; then leave controls free
   controls.target.copy(center);
   camera.position.set(center.x, center.y, center.z + distance);
   camera.up.set(0, 1, 0);
   camera.updateProjectionMatrix();
 }
+
+
 
 
 // UI
@@ -103,18 +103,33 @@ ui.onInput(() => {
 system.ensureCardCount(ui.values().count, ui.values().power);
 initialPlaceCameraAndGrass(0.60);
 
-hardResize();
+
+function updateGrassUnderHeart() {
+  const bounds = system.getHeartBoundsWorld && system.getHeartBoundsWorld();
+  const bottom = system.getHeartBottomWorld && system.getHeartBottomWorld();
+  if (!bounds || !bottom) return;
+
+  const count = system.cards?.length ?? 0;
+  // scale-aware gap so grass never intersects
+  const heartH = Math.max(bounds.size.y, 1e-4);
+  const gap    = 0.08 * heartH + 0.008 * Math.sqrt(Math.max(1, count)) * CARD_H;
+
+  // optional smoothing to avoid micro-jitter as the heart eases
+  const target = new THREE.Vector3(bottom.x, bottom.y - gap, bottom.z);
+  grassPatch.position.lerp(target, 0.25); // 0.25 = ease factor; set to 1 for instant
+}
 
 // Render loop (NO camera fitting here)
 const clock = new THREE.Clock();
 function render() {
   const dt = Math.min(0.033, clock.getDelta());
-  controls.update();                 // user has full control from here
-  updateHeartFrame(camera);          // heart plane follows camera
-  frameOverlay.update(camera, renderer); // <— keep the frame fitted and facing camera
+  controls.update();
+  updateHeartFrame(camera);          // plane faces the current camera
+  frameOverlay.update(camera);       // HUD frame fits current aspect/fov
   system.step(dt, ui.values(), camera);
-  renderer.render(scene, camera);
-  system.step(dt, ui.values(), camera);
+
+  updateGrassUnderHeart();           // <— keep grass under the true bottom
+
   renderer.render(scene, camera);
   requestAnimationFrame(render);
 }
