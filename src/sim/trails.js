@@ -23,20 +23,19 @@ export function makeTrail(color = 0xff0000, maxPoints = 40) {
     positions,
     max: maxPoints,
     count: 0,
-    // smoothing/decay parameters
-    decayPtsPerSec: 24,    // how many points we remove per second when idle
-    minMoveSq: 0.0006,     // movement threshold (squared) to consider "moving"
+    decayPtsPerSec: 24, // points removed per second when idle
+    minMoveSq: 0.0006,  // kept for compatibility (unused here directly)
   };
 
   return line;
 }
 
 /**
- * Compute a trail head position that sits on the *front face* of the card
- * so the line visually vanishes INTO the image, not at the card's center.
+ * Compute a trail head position on the *front face* of the card so the
+ * line visually vanishes INTO the image, not at the card's center.
+ * Exported so the simulation can detect "reorientation movement" too.
  */
-function getCardFrontWorld(obj, camera) {
-  // Direction from card to camera approximates the card's facing (we billboard toward camera)
+export function computeTrailHead(obj, camera) {
   const frontOffset = CARD_T * 0.9; // nudge to front face
   const dir = new THREE.Vector3().subVectors(camera.position, obj.group.position).normalize();
   return new THREE.Vector3().copy(obj.group.position).addScaledVector(dir, frontOffset);
@@ -52,16 +51,15 @@ export function updateTrail(obj, dt, moving, camera) {
   const data = line.userData;
   const { positions, max } = data;
 
-  // Always keep the head (index=0) at the card face position
-  const head = getCardFrontWorld(obj, camera);
+  // Keep head at the card face position for visual continuity
+  const head = computeTrailHead(obj, camera);
 
   if (moving) {
     // Grow up to max points
-    let count = Math.min(data.count + 1, max);
+    const nextCount = Math.min(data.count + 1, max);
 
     // Shift existing points back by one
-    // positions[i] = positions[i-1]
-    for (let i = count - 1; i > 0; i--) {
+    for (let i = nextCount - 1; i > 0; i--) {
       positions[i * 3 + 0] = positions[(i - 1) * 3 + 0];
       positions[i * 3 + 1] = positions[(i - 1) * 3 + 1];
       positions[i * 3 + 2] = positions[(i - 1) * 3 + 2];
@@ -72,8 +70,8 @@ export function updateTrail(obj, dt, moving, camera) {
     positions[1] = head.y;
     positions[2] = head.z;
 
-    data.count = count;
-    line.geometry.setDrawRange(0, count);
+    data.count = nextCount;
+    line.geometry.setDrawRange(0, nextCount);
     line.geometry.attributes.position.needsUpdate = true;
     return;
   }

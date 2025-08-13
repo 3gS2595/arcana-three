@@ -10,6 +10,9 @@ import { CARD_H } from './cards/mesh.js';
 import { loadImageDeck } from './cards/imageDeck.js';
 import { FrameBorderOverlay } from './overlay/frameBorderOverlay.js';
 
+// NEW: flat lighting helper (scene lighting only)
+import { setupFlatLighting } from './env/lighting.js';
+
 const container = document.getElementById('renderer');
 const overlay   = document.getElementById('overlay');
 const { scene, camera, renderer, controls } = createApp(container, overlay);
@@ -45,6 +48,9 @@ scene.add(sky);
 
 const grassPatch = buildGrassPatch({ radius: 3.8, bladeCount: 5000, groundRepeat: 7 });
 scene.add(grassPatch);
+
+// >>> SCENE LIGHTING CHANGE ONLY <<<
+setupFlatLighting(scene, renderer);
 
 // Load image deck & system (ONE CARD PER IMAGE)
 const imageDeck = await loadImageDeck('/assets/images/');

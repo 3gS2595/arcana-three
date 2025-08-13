@@ -1,8 +1,8 @@
 // src/sim/system.js
 import { THREE } from '../core/three.js';
-import { makeImageCardMesh } from '../cards/mesh.js';
-import { makeTrail, updateTrail, clearTrail } from './trails.js';
-import { generateHeartPoints, heartLocalToWorld, heartFrame } from './heart.js';
+import { makeImageCardMesh, CARD_H } from '../cards/mesh.js';
+import { makeTrail, updateTrail, clearTrail, computeTrailHead } from './trails.js';
+import { generateHeartPointsVariable, heartLocalToWorld, heartFrame } from './heart.js';
 
 const rng = (min, max) => min + Math.random() * (max - min);
 const GRAVITY = new THREE.Vector3(0, -9.8, 0);
@@ -10,16 +10,33 @@ const DRAG = 0.12;
 const FLOOR_Y = 0.02;
 const emitterPos = new THREE.Vector3(0, 1.0, 0);
 
+// ---------- ABSOLUTE SPACING CONTROLS (tweak here) ----------
+// 1) Absolute neighbor margin (world units) added once between each pair.
+//    This is the main knob you asked for.
+export const CARD_MARGIN_ABS = 0.5;  // <<— change this for desired gap between neighbors
+
+// 2) Optional side buffer added to EACH SIDE of every card (world units).
+//    Default 0 per your request; increase to force extra clearance beyond margin.
+export const SIDE_BUFFER_ABS = 0.0;   // <<— set > 0 for additional per-card side padding
+
 // Billboard behavior
 const BILLBOARD_MODE = 'capped'; // 'instant' | 'capped'
 const BILLBOARD_MAX_DEG_PER_SEC = 240;
+
+// Movement thresholds for trail logic
+const LOCK_DIST_SQ       = 0.0009;
+const SPEED_EPS_SQ       = 0.0004;
+const HEAD_MOVE_EPS_SQ   = 0.000025;
 
 export function createSystem(scene, trailsGroup, imageDeck /* [{texture, aspect}] */) {
   const cards = [];
   let heartTargets = [];
   const deck = imageDeck || [];
 
-  // Continuous homing tunables
+  // Recompute targets only when deck changes/reset
+  let _targetsDirty = true;
+  let _lastCount = -1;
+
   const HOMING_POS_SPEED = 2.5;
   const MOVE_EPS = 0.0006;
 
@@ -38,12 +55,13 @@ export function createSystem(scene, trailsGroup, imageDeck /* [{texture, aspect}
     obj.state = 'flying';
     obj.homingDelay = 0.8 + Math.random() * 0.8;
     obj.prevPos.copy(obj.group.position);
+    obj.prevHead = null;
   }
 
-  // EXACTLY one card per image
   function ensureCardCount(power) {
     const n = deck.length;
 
+    // grow
     while (cards.length < n) {
       const i = cards.length;
       const entry = deck[i];
@@ -61,21 +79,32 @@ export function createSystem(scene, trailsGroup, imageDeck /* [{texture, aspect}
         state: 'flying',
         targetLocal: new THREE.Vector3(),
         homingDelay: 1,
-        prevPos: new THREE.Vector3()
+        prevPos: new THREE.Vector3(),
+        prevHead: null,
+        // rendered width at full scale (height = CARD_H)
+        cardWidth: built.width || (CARD_H * (entry?.aspect ?? 1.0))
       };
       spawnCard(obj, power);
       cards.push(obj);
+      _targetsDirty = true;
     }
 
+    // shrink
     while (cards.length > n) {
       const obj = cards.pop();
       if (obj.group.parent) obj.group.parent.remove(obj.group);
       trailsGroup.remove(obj.trail);
+      _targetsDirty = true;
     }
 
-    heartTargets = generateHeartPoints(n);
-    for (let i = 0; i < cards.length; i++) {
-      cards[i].targetLocal = heartTargets[i % heartTargets.length].clone();
+    if (_lastCount !== n) {
+      _lastCount = n;
+      _targetsDirty = true;
+    }
+
+    if (_targetsDirty && n > 0) {
+      prepareHeartTargets();
+      _targetsDirty = false;
     }
   }
 
@@ -102,9 +131,21 @@ export function createSystem(scene, trailsGroup, imageDeck /* [{texture, aspect}
   }
 
   function prepareHeartTargets() {
-    const n = deck.length;
-    heartTargets = generateHeartPoints(n);
-    for (let i = 0; i < cards.length; i++) {
+    const n = cards.length;
+    if (!n) { heartTargets = []; return; }
+
+    // Proportional spacing: center-to-center span for each card i
+    // = cardWidth + absolute neighbor margin + buffer on BOTH sides.
+    const spacings = new Array(n);
+    for (let i = 0; i < n; i++) {
+      const w = cards[i].cardWidth || (CARD_H * 1.0);
+      spacings[i] = Math.max(1e-4, w + CARD_MARGIN_ABS + 2 * SIDE_BUFFER_ABS);
+    }
+
+    // Centers around the complete outline (start at top)
+    heartTargets = generateHeartPointsVariable(spacings);
+
+    for (let i = 0; i < n; i++) {
       cards[i].targetLocal = heartTargets[i % heartTargets.length].clone();
     }
   }
@@ -129,6 +170,7 @@ export function createSystem(scene, trailsGroup, imageDeck /* [{texture, aspect}
       }
 
       obj.age += dt;
+      let movingForTrail = false;
 
       if (obj.state === 'flying') {
         const ax = -DRAG * obj.velocity.x;
@@ -158,22 +200,38 @@ export function createSystem(scene, trailsGroup, imageDeck /* [{texture, aspect}
         if (obj.age > obj.homingDelay || obj.velocity.y < 0) obj.state = 'homing';
         if (obj.group.position.y < 0.2) obj.state = 'homing';
 
+        movingForTrail = true;
+
       } else if (obj.state === 'homing') {
         const targetWorld = heartLocalToWorld(obj.targetLocal);
         homeTowards(obj, targetWorld, dt);
         billboardTowardCamera(obj, camera, dt);
+
+        const distSq = obj.group.position.distanceToSquared(targetWorld);
+        const speedSq = obj.velocity.lengthSq();
+        movingForTrail = (distSq > LOCK_DIST_SQ) || (speedSq > SPEED_EPS_SQ);
       }
 
-      // TRAILS
+      // Reorientation: front-face head motion
+      const headNow = computeTrailHead(obj, camera);
+      if (!obj.prevHead) {
+        obj.prevHead = headNow.clone();
+      } else {
+        const headMoveSq = obj.prevHead.distanceToSquared(headNow);
+        if (headMoveSq > HEAD_MOVE_EPS_SQ) movingForTrail = true;
+      }
+
+      // Trails
       if (showPaths) {
         obj.trail.visible = true;
-        const moved = obj.prevPos.distanceToSquared(obj.group.position) > MOVE_EPS;
-        updateTrail(obj, dt, moved, camera);
-        if (moved) obj.prevPos.copy(obj.group.position);
-      } else {
-        if (obj.trail.visible) {
-          clearTrail(obj);
+        updateTrail(obj, dt, movingForTrail, camera);
+
+        if (obj.prevPos.distanceToSquared(obj.group.position) > MOVE_EPS) {
+          obj.prevPos.copy(obj.group.position);
         }
+        obj.prevHead.copy(headNow);
+      } else {
+        if (obj.trail.visible) clearTrail(obj);
         obj.trail.visible = false;
       }
     }
@@ -181,9 +239,10 @@ export function createSystem(scene, trailsGroup, imageDeck /* [{texture, aspect}
   }
 
   function reset(power) {
-    heartTargets = generateHeartPoints(deck.length);
-    cards.forEach((c, i) => {
-      c.targetLocal = heartTargets[i % heartTargets.length].clone();
+    // Re-layout on next ensureCardCount
+    _targetsDirty = true;
+
+    cards.forEach(c => {
       c.state = 'flying';
       c.opacity = 0;
       c.alive = true;
@@ -194,6 +253,7 @@ export function createSystem(scene, trailsGroup, imageDeck /* [{texture, aspect}
         c.group.quaternion.identity();
       }
       c.prevPos.copy(c.group.position);
+      c.prevHead = null;
       spawnCard(c, power);
     });
   }
