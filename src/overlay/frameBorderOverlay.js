@@ -168,44 +168,59 @@ export class FrameBorderOverlay {
   removeFrom(scene) { if (this.group.parent) this.group.parent.remove(this.group); }
 
   // ---------- Loading ----------
-  async load() {
-    const loader = new GLTFLoader();
+async load() {
+  const loader = new GLTFLoader();
 
-    const loadOne = async (name, url) => {
-      const gltf = await loader.loadAsync(url);
-      const root = new THREE.Group();
-      root.name = `overlay-part:${name}`;
-      root.add(gltf.scene);
+  const loadOne = async (name, url) => {
+    const gltf = await loader.loadAsync(url);
 
-      const meshes = [];
-      const originals = [];
-      gltf.scene.traverse(n => {
-        if (n.isMesh) {
-          meshes.push(n);
-          originals.push(n.material);
-          n.frustumCulled = false;
-          n.renderOrder = 9999;
-        }
-      });
+    // Root for this part under our overlay group
+    const root = new THREE.Group();
+    root.name = `overlay-part:${name}`;
 
-      const P = { name, object: root, meshes, originals, pivot: new THREE.Object3D() };
-      P.pivot.name = `pivot:${name}`;
-      P.pivot.add(root);
-      this.group.add(P.pivot);
-      this.parts.set(name, P);
+    // axisFix converts XZ-plane (Z up) assets into XY-plane (Y up)
+    const axisFix = new THREE.Group();
+    axisFix.name = `axisFix:${name}`;
+    // IMPORTANT: your GLBs are XZ (Z-up) -> rotate -90° about X so Z becomes +Y
 
-      this._applyLightingForObject(P);
-      return P;
-    };
 
-    await Promise.all(Object.entries(PART_FILES).map(([n,f]) => loadOne(n, this.dir + f)));
+    axisFix.add(gltf.scene);
+    root.add(axisFix);
 
-    this._syncPivotMarkers();
-    this._syncBoxHelpers();
-    this._measureBaseNumbers();
+    // Collect meshes from axisFix (not gltf.scene) so lighting & flags apply
+    const meshes = [];
+    const originals = [];
+    axisFix.traverse((n) => {
+      if (n.isMesh) {
+        meshes.push(n);
+        originals.push(n.material);
+        n.frustumCulled = false;
+        n.renderOrder = 9999;
+      }
+    });
 
-    this._loaded = true;
-  }
+    // Store with a pivot wrapper so origins stay at authoring pivots
+    const P = { name, object: root, meshes, originals, pivot: new THREE.Object3D() };
+    P.pivot.name = `pivot:${name}`;
+    P.pivot.add(root);
+    this.group.add(P.pivot);
+    this.parts.set(name, P);
+
+    // Apply initial lighting/depth settings
+    this._applyLightingForObject(P);
+    return P;
+  };
+
+  // Load all 16 parts
+  await Promise.all(Object.entries(PART_FILES).map(([n, f]) => loadOne(n, this.dir + f)));
+
+  // Debug helpers and base measurement now work on XY (Y-up) as intended
+  this._syncPivotMarkers();
+  this._syncBoxHelpers();
+  this._measureBaseNumbers();
+
+  this._loaded = true;
+}
 
   _applyLightingForObject(P) {
     for (const mesh of P.meshes) {
