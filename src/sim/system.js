@@ -10,17 +10,12 @@ const DRAG = 0.12;
 const FLOOR_Y = 0.02;
 const emitterPos = new THREE.Vector3(0, 1.0, 0);
 
-// ---------- ABSOLUTE SPACING CONTROLS (tweak here) ----------
-// 1) Absolute neighbor margin (world units) added once between each pair.
-//    This is the main knob you asked for.
-export const CARD_MARGIN_ABS = 0.5;  // <<— change this for desired gap between neighbors
-
-// 2) Optional side buffer added to EACH SIDE of every card (world units).
-//    Default 0 per your request; increase to force extra clearance beyond margin.
-export const SIDE_BUFFER_ABS = 0.0;   // <<— set > 0 for additional per-card side padding
+// ---------- ABSOLUTE SPACING CONTROLS ----------
+export const CARD_MARGIN_ABS = 0.12; // main gap between neighbors (world units)
+export const SIDE_BUFFER_ABS = 0.0;  // per-side buffer (world units) — set >0 for extra clearance
 
 // Billboard behavior
-const BILLBOARD_MODE = 'capped'; // 'instant' | 'capped'
+const BILLBOARD_MODE = 'capped';
 const BILLBOARD_MAX_DEG_PER_SEC = 240;
 
 // Movement thresholds for trail logic
@@ -33,7 +28,6 @@ export function createSystem(scene, trailsGroup, imageDeck /* [{texture, aspect}
   let heartTargets = [];
   const deck = imageDeck || [];
 
-  // Recompute targets only when deck changes/reset
   let _targetsDirty = true;
   let _lastCount = -1;
 
@@ -51,7 +45,11 @@ export function createSystem(scene, trailsGroup, imageDeck /* [{texture, aspect}
     );
     obj.angular.set(rng(-2, 2), rng(-2, 2), rng(-2, 2));
     obj.age = 0; obj.alive = true; obj.group.scale.setScalar(0.05); obj.opacity = 0.0;
-    obj.trail.userData.count = 0; obj.trail.geometry.setDrawRange(0, 0);
+
+    // reset trail using the new API (no direct geometry access)
+    clearTrail(obj);
+    obj.trail.visible = true;
+
     obj.state = 'flying';
     obj.homingDelay = 0.8 + Math.random() * 0.8;
     obj.prevPos.copy(obj.group.position);
@@ -81,7 +79,6 @@ export function createSystem(scene, trailsGroup, imageDeck /* [{texture, aspect}
         homingDelay: 1,
         prevPos: new THREE.Vector3(),
         prevHead: null,
-        // rendered width at full scale (height = CARD_H)
         cardWidth: built.width || (CARD_H * (entry?.aspect ?? 1.0))
       };
       spawnCard(obj, power);
@@ -134,15 +131,13 @@ export function createSystem(scene, trailsGroup, imageDeck /* [{texture, aspect}
     const n = cards.length;
     if (!n) { heartTargets = []; return; }
 
-    // Proportional spacing: center-to-center span for each card i
-    // = cardWidth + absolute neighbor margin + buffer on BOTH sides.
+    // proportional spacing per card
     const spacings = new Array(n);
     for (let i = 0; i < n; i++) {
       const w = cards[i].cardWidth || (CARD_H * 1.0);
       spacings[i] = Math.max(1e-4, w + CARD_MARGIN_ABS + 2 * SIDE_BUFFER_ABS);
     }
 
-    // Centers around the complete outline (start at top)
     heartTargets = generateHeartPointsVariable(spacings);
 
     for (let i = 0; i < n; i++) {
@@ -212,36 +207,31 @@ export function createSystem(scene, trailsGroup, imageDeck /* [{texture, aspect}
         movingForTrail = (distSq > LOCK_DIST_SQ) || (speedSq > SPEED_EPS_SQ);
       }
 
-      // Reorientation: front-face head motion
+      // head-based reorientation motion still yields trails
       const headNow = computeTrailHead(obj, camera);
-      if (!obj.prevHead) {
-        obj.prevHead = headNow.clone();
-      } else {
+      if (!obj.prevHead) obj.prevHead = headNow.clone();
+      else {
         const headMoveSq = obj.prevHead.distanceToSquared(headNow);
         if (headMoveSq > HEAD_MOVE_EPS_SQ) movingForTrail = true;
+        obj.prevHead.copy(headNow);
       }
 
-      // Trails
       if (showPaths) {
         obj.trail.visible = true;
         updateTrail(obj, dt, movingForTrail, camera);
-
         if (obj.prevPos.distanceToSquared(obj.group.position) > MOVE_EPS) {
           obj.prevPos.copy(obj.group.position);
         }
-        obj.prevHead.copy(headNow);
       } else {
-        if (obj.trail.visible) clearTrail(obj);
-        obj.trail.visible = false;
+        clearTrail(obj);
       }
     }
     return false;
   }
 
   function reset(power) {
-    // Re-layout on next ensureCardCount
+    // force a re-layout on next ensureCardCount
     _targetsDirty = true;
-
     cards.forEach(c => {
       c.state = 'flying';
       c.opacity = 0;
