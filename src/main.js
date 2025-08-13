@@ -31,17 +31,6 @@ const frameOverlay = new FrameBorderOverlay({
 await frameOverlay.load();
 frameOverlay.addTo(scene);
 
-// Resize robustness
-const ro = new ResizeObserver(entries => {
-  for (const entry of entries) {
-    const { width, height } = entry.contentRect;
-    renderer.setSize(width, height, false);
-    camera.aspect = width / Math.max(1, height);
-    camera.updateProjectionMatrix();
-  }
-});
-ro.observe(container);
-
 // --- Environment (optional) ---
 // const sky = buildSkyDome({ radius: 800 }); scene.add(sky);
 // const grassPatch = buildGrassPatch({ radius: 3.8, bladeCount: 5000, groundRepeat: 7 });
@@ -71,7 +60,7 @@ const ui = initUI({
   // NEW: wire in overlay controls
   overlayControls: true,
   onOverlayChange: (values) => {
-    // values: { frameDistance, fillMode, marginH, marginV, lighting, mixStrength, debugPivots, debugBounds }
+    // values: { frameDistance, fillMode, marginH, marginV, lighting, mixStrength, debugPivots, debugBounds, frameScale, expanderXBoost, expanderYBoost }
     frameOverlay.setDistance(values.frameDistance);
     frameOverlay.setFillMode(values.fillMode);
     frameOverlay.setMargins(values.marginH, values.marginV);
@@ -79,6 +68,7 @@ const ui = initUI({
     frameOverlay.setMixStrength(values.mixStrength);
     frameOverlay.setDebugPivots(values.debugPivots);
     frameOverlay.setDebugBounds(values.debugBounds);
+    // Note: frameScale / expander boosts are applied after update() in the render loop (non-invasive debug assists).
   },
   onOverlayDump: () => {
     console.log('[Debug] Camera & Frame');
@@ -104,7 +94,41 @@ function render() {
   controls.update();
   updateHeartFrame(camera);
 
+  // Normal overlay update
   frameOverlay.update(camera);
+
+  // --- NEW: Manual debug assists from the panel (non-invasive, post-update) ---
+  {
+    const vals = ui.values();
+
+    // 1) Global scale bias (uniform multiplier on whatever update() computed)
+    if (vals.frameScale && Math.abs(vals.frameScale - 1.0) > 1e-6) {
+      frameOverlay.group.scale.multiplyScalar(vals.frameScale);
+    }
+
+    // 2) Expander boosts: multiply local scale on expanders only
+    const EXP_H = [
+      'top-left-expander', 'bottom-left-expander',
+      'top-right-expander', 'bottom-right-expander'
+    ];
+    const EXP_V = [
+      'left-top-expander', 'left-bottom-expander',
+      'right-top-expander', 'right-bottom-expander'
+    ];
+    if (vals.expanderXBoost && vals.expanderXBoost > 1.0) {
+      for (const k of EXP_H) {
+        const P = frameOverlay.parts?.get(k);
+        if (P?.object) P.object.scale.x *= vals.expanderXBoost;
+      }
+    }
+    if (vals.expanderYBoost && vals.expanderYBoost > 1.0) {
+      for (const k of EXP_V) {
+        const P = frameOverlay.parts?.get(k);
+        if (P?.object) P.object.scale.y *= vals.expanderYBoost;
+      }
+    }
+  }
+
   system.step(dt, ui.values(), camera);
 
   renderer.render(scene, camera);
