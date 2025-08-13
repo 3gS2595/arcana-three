@@ -19,14 +19,9 @@ const { scene, camera, renderer, controls } = createApp(container, overlay);
 
 // Overlay frame (HUD) — normals + texture blend
 const frameOverlay = new FrameBorderOverlay({
-  url: '/assets/overlay.glb',
-  marginV: 0.01,
-  marginH: 0.01,
-  distance: 2.0,
-  renderOnTop: true,
-  scalingMode: 'stretch',
-  lighting: 'normals',     // show texture blended with normals
-  mixStrength: 0.6         // 0=only texture, 1=only normals
+  partsDir: '/assets/glb',
+  distance: 0.7,
+  lighting: 'unlit',
 });
 await frameOverlay.load();
 frameOverlay.addTo(scene);

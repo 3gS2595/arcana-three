@@ -3,10 +3,12 @@ import { OrbitControls } from './controls.js';
 
 export function createApp(container, overlayCanvas) {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xffffff);
+  // Use transparent background so the skydome shows through
+  scene.background = null;
   scene.fog = new THREE.Fog(0xaed8ff, 180, 900);
 
-  const camera = new THREE.PerspectiveCamera(55, 2, 0.1, 200);
+  // Increase far plane to comfortably include skydome & fog
+  const camera = new THREE.PerspectiveCamera(55, 2, 0.1, 5000);
   camera.position.set(7, 6, 12);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
