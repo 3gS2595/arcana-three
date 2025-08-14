@@ -32,6 +32,11 @@ export function createSystem(scene, trailsGroup, imageDeck) {
     ensureCardCount(ui.power);
 
     for (const c of state.cards) {
+      // While focused/animating, interaction module controls transforms and trails.
+      if (c.mode && c.mode !== 'normal') {
+        continue;
+      }
+
       if (!c.alive) spawnCard(state, c, ui.power);
 
       // fade-in & scale-up
@@ -69,6 +74,7 @@ export function createSystem(scene, trailsGroup, imageDeck) {
   function reset(power) {
     state._targetsDirty = true;
     for (const c of state.cards) {
+      c.mode = 'normal'; // ensure focus state cleared on reset
       c.state = 'flying'; c.opacity = 0; c.alive = true;
       state.clearTrail(c); c.trail.visible = true;
       if (c.group.parent !== scene) scene.add(c.group);

@@ -1,3 +1,4 @@
+// src/core/app.js
 import { THREE } from './three.js';
 import { OrbitControls } from './controls.js';
 
@@ -8,6 +9,9 @@ export function createApp(container, overlayCanvas) {
 
   const camera = new THREE.PerspectiveCamera(55, 2, 0.1, 200);
   camera.position.set(0, 50, 0);
+
+  // IMPORTANT: ensure camera is part of the scene graph so children of the camera render
+  scene.add(camera);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.outputColorSpace = THREE.SRGBColorSpace;

@@ -9,7 +9,7 @@ export function setupFlatLighting(scene, renderer) {
   dir.position.set(25, 50, -20);
   dir.target.position.set(0, 2.5, 0);
 
-  const amb = new THREE.AmbientLight(0xffffff, 2);
+  const amb = new THREE.AmbientLight(0xffffff, 3.1);
 
   scene.add(amb);
 }

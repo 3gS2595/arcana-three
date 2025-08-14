@@ -16,4 +16,4 @@ export const LOCK_DIST_SQ = 0.0009;
 export const SPEED_EPS_SQ = 0.0004;
 export const HEAD_MOVE_EPS_SQ = 0.000025;
 
-export const HOMING_POS_SPEED = 2.5;
+export const HOMING_POS_SPEED = 3.5;

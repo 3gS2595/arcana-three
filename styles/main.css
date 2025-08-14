@@ -23,3 +23,73 @@ html,body{
 
 /* Optional link style (kept if you show any overlay text later) */
 a{color:#9ecbff;text-decoration:none}
+
+/* Hide helper */
+.hidden{ display:none !important; }
+
+/* -------------------------
+   Boot / Loader UI
+   ------------------------- */
+#boot{
+  position:fixed; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  background:#0a0f16;
+  z-index:999999;
+}
+.boot-card{
+  width:min(560px, 92vw);
+  background:#0d141d;
+  border:1px solid #1b2a3c;
+  border-radius:16px;
+  box-shadow:0 10px 40px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03);
+  padding:24px 20px 18px;
+}
+.boot-title{
+  margin:0 0 16px 0;
+  color:#e6ecf1;
+  font-weight:700;
+  font-size:22px;
+  letter-spacing:0.2px;
+}
+.boot-bar{
+  width:100%;
+  height:12px;
+  background:#0a1119;
+  border:1px solid #1e2b3a;
+  border-radius:999px;
+  overflow:hidden;
+}
+.boot-fill{
+  height:100%;
+  background:linear-gradient(90deg,#1c66ff,#6aa8ff);
+  width:0%;
+  transition:width 120ms ease;
+}
+.boot-meta{
+  display:flex; justify-content:space-between; align-items:center;
+  margin:10px 2px 0;
+  color:#a9bed5;
+  font-size:12px;
+}
+.boot-status{ opacity:0.85; }
+.boot-start{
+  margin-top:16px;
+  width:100%;
+  height:44px;
+  border-radius:10px;
+  border:1px solid #35518a;
+  background:#1b2c4a;
+  color:#dbe9ff;
+  font-weight:600;
+  font-size:15px;
+  cursor:pointer;
+  transition:opacity 160ms ease, transform 120ms ease, background 160ms ease;
+}
+.boot-start[disabled]{
+  opacity:0.45;
+  cursor:not-allowed;
+}
+.boot-start:not([disabled]):hover{
+  background:#23406c;
+  transform:translateY(-1px);
+}

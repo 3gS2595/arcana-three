@@ -1,3 +1,4 @@
+// src/sim/system/state.js
 import { THREE } from '../../core/three.js';
 import { makeImageCardMesh, CARD_H } from '../../cards/mesh.js';
 import { makeTrail, updateTrail, clearTrail } from '../trails.js';
@@ -30,6 +31,7 @@ export function createState(scene, trailsGroup, imageDeck) {
         angular: new THREE.Vector3(),
         age: 0, alive: false, opacity: 0,
         state: 'flying',
+        mode: 'normal',                // <-- focus state ('normal' | 'focus_in' | 'focused' | 'focus_out')
         targetLocal: new THREE.Vector3(),
         homingDelay: 1,
         prevPos: new THREE.Vector3(),
