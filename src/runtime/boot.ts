@@ -1,6 +1,8 @@
 import { THREE } from "@/core/three";
 import { setupFrameOverlay } from "@/runtime/overlayFrame";
 import { loadImageDeck } from "@/cards/imageDeck";
+// use the same back.png URL the mesh system uses so it participates in the loader progress
+import backUrl from "@/assets/back.png?url";
 
 export interface BootResult {
   frameOverlay: Awaited<ReturnType<typeof setupFrameOverlay>>;
@@ -22,26 +24,14 @@ export async function runBoot(scene: THREE.Scene): Promise<BootResult> {
   };
   const setStatus = (s: string) => ($status.textContent = s);
 
-  let mgrLoaded = 0,
-    mgrTotal = 0;
+  let mgrLoaded = 0, mgrTotal = 0;
   const mgr = THREE.DefaultLoadingManager;
-  mgr.onStart = (_url, _loaded, total) => {
-    mgrTotal = total || 0;
-    mgrLoaded = _loaded || 0;
-  };
-  mgr.onProgress = (_url, loaded, total) => {
-    mgrLoaded = loaded || 0;
-    mgrTotal = total || 0;
-    refresh();
-  };
-  mgr.onLoad = () => {
-    mgrLoaded = mgrTotal;
-    refresh();
-  };
+  mgr.onStart = (_url, _loaded, total) => { mgrTotal = total || 0; mgrLoaded = _loaded || 0; };
+  mgr.onProgress = (_url, loaded, total) => { mgrLoaded = loaded || 0; mgrTotal = total || 0; refresh(); };
+  mgr.onLoad = () => { mgrLoaded = mgrTotal; refresh(); };
   mgr.onError = (url) => console.warn("[loader] error:", url);
 
-  let deckLoaded = 0,
-    deckTotal = 0;
+  let deckLoaded = 0, deckTotal = 0;
   function refresh() {
     const m = mgrTotal > 0 ? mgrLoaded / mgrTotal : 0;
     const d = deckTotal > 0 ? deckLoaded / deckTotal : 0;
@@ -52,10 +42,11 @@ export async function runBoot(scene: THREE.Scene): Promise<BootResult> {
 
   setStatus("Preparing assets…");
 
+  // Preload back texture through the manager using the module URL
   const preloadBack = () =>
     new Promise<void>((resolve) => {
       const tl = new THREE.TextureLoader();
-      tl.load("/assets/back.png", () => resolve(), undefined, () => resolve());
+      tl.load(backUrl, () => resolve(), undefined, () => resolve());
     });
 
   const overlayPromise = (async () => setupFrameOverlay(scene))();
@@ -69,7 +60,7 @@ export async function runBoot(scene: THREE.Scene): Promise<BootResult> {
 
   const [frameOverlay, _backOK, imageDeck] = await Promise.all([overlayPromise, backPromise, deckPromise]);
 
-  setStatus(imageDeck.length ? "Ready" : "No images found in /assets/images/");
+  setStatus(imageDeck.length ? "Ready" : "No images found in src/assets/images/");
   setProgress(100);
   $start.disabled = false;
 

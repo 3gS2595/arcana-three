@@ -5,7 +5,8 @@ import { updateTrail as updateTrailLine } from "@/sim/trails";
 import { makeCurveTowardCenter } from "./focus/path";
 import { makeFocusAnchor, attachToAnchor } from "./focus/attachment";
 import { computeFocusScale } from "./focus/sizing";
-import { stepAnimation, AnimState } from "./focus/animation";
+import { stepAnimation } from "./focus/animation";
+import type { AnimState } from "./focus/animation";
 import type { SystemAPI, SystemCard } from "@/sim/system";
 
 export interface FocusOptions {
@@ -47,7 +48,14 @@ export function createFocusController({
   const worldPosOf = (o: THREE.Object3D) => o.getWorldPosition(new THREE.Vector3());
   const worldQuatOf = (o: THREE.Object3D) => o.getWorldQuaternion(new THREE.Quaternion());
 
-  function startCurveAnim(card: SystemCard, curve: ReturnType<typeof makeCurveTowardCenter>, toQuat: THREE.Quaternion, toScale: number, dur: number, onDone: () => void) {
+  function startCurveAnim(
+    card: SystemCard,
+    curve: ReturnType<typeof makeCurveTowardCenter>,
+    toQuat: THREE.Quaternion,
+    toScale: number,
+    dur: number,
+    onDone: () => void
+  ) {
     const fromQuat = worldQuatOf(card.group);
     const fromScale = card.group.scale.x;
     (card as any)._anim = {
@@ -177,7 +185,8 @@ export function createFocusController({
     if (card.mode === "focused" || card.mode === "focus_in") {
       releaseCard(card);
     } else {
-      for (const c of system.cards) if (c !== card && (c.mode === "focused" || c.mode === "focus_in")) releaseCard(c);
+      for (const c of system.cards)
+        if (c !== card && (c.mode === "focused" || c.mode === "focus_in")) releaseCard(c);
       focusCard(card);
     }
   };
@@ -186,7 +195,9 @@ export function createFocusController({
   return {
     update(dt: number) {
       for (const c of system.cards) {
-        if (c.mode === "focused" && !(c as any)._anim && c.trail.visible) updateTrailLine(c, dt, false, camera);
+        if (c.mode === "focused" && !(c as any)._anim && c.trail.visible) {
+          updateTrailLine(c, dt, false, camera);
+        }
       }
       updateAnimations(dt);
     },
