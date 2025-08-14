@@ -4,7 +4,8 @@ export class TextureScene extends THREE.WebGLRenderTarget {
   name: string;
   constructor(width: number, height: number) {
     const depthTexture = new THREE.DepthTexture(width, height);
-    depthTexture.type = THREE.FloatType;
+    // Use an unsigned depth type for wide driver support
+    depthTexture.type = THREE.UnsignedIntType;
     depthTexture.minFilter = THREE.NearestFilter;
     depthTexture.magFilter = THREE.NearestFilter;
     depthTexture.generateMipmaps = false;

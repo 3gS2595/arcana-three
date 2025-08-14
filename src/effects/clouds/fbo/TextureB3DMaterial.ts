@@ -9,8 +9,6 @@ export class TextureB3DMaterial extends THREE.ShaderMaterial {
     super({
       vertexShader: /* glsl */`
         precision highp float;
-        in vec3 position;
-        in vec2 uv;
         out vec2 vUv;
         void main(){
           vUv = uv;

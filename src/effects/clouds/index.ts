@@ -1,12 +1,14 @@
 import * as THREE from "three";
-import { CloudsRenderer } from "./CloudsRenderer";
+import { CloudsRenderer, type CloudsStage } from "./CloudsRenderer";
 import { createCameraEdgeMask } from "./EdgeMask";
 
 export interface CloudsEffect {
   prepare: (dt: number) => void;          // render mask to FBO
-  draw: (dt: number) => void;              // raymarch & composite
+  draw: (dt: number) => void;             // stage-driven compose
   resize: (w: number, h: number) => void;
   dispose: () => void;
+  setStage: (s: CloudsStage) => void;
+  getStage: () => CloudsStage;
 }
 
 export function createCloudsEffect(gl: THREE.WebGLRenderer, camera: THREE.PerspectiveCamera): CloudsEffect {
@@ -16,8 +18,14 @@ export function createCloudsEffect(gl: THREE.WebGLRenderer, camera: THREE.Perspe
     distance: 2.0, thickness: 0.12, volumeDepth: 1.6, volumeGrow: 1.4
   });
 
-  function prepare(dt: number) {
-    renderer.renderMask(mask.root, camera);
+  // default to stage 1 (FSQ gradient on screen)
+  renderer.setStage(1);
+
+  function prepare(_dt: number) {
+    const s = renderer.getStage();
+    if (s >= 3) {
+      renderer.renderMask(mask.root, camera);
+    }
   }
 
   function draw(dt: number) {
@@ -34,5 +42,12 @@ export function createCloudsEffect(gl: THREE.WebGLRenderer, camera: THREE.Perspe
     renderer.dispose();
   }
 
-  return { prepare, draw, resize, dispose };
+  return {
+    prepare,
+    draw,
+    resize,
+    dispose,
+    setStage: (s) => renderer.setStage(s),
+    getStage: () => renderer.getStage()
+  };
 }

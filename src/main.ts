@@ -6,7 +6,7 @@ import { CARD_H } from "@/cards/mesh";
 import { setupFlatLighting } from "@/environment/lighting";
 import { runBoot } from "@/runtime/boot";
 import { createInteractions } from "@/interaction";
-import { createCloudsEffect } from "@/effects/clouds"; // <-- NEW
+import { createCloudsEffect } from "@/effects/clouds";
 
 const container = document.getElementById("renderer") as HTMLDivElement;
 const overlay = document.getElementById("overlay") as HTMLCanvasElement;
@@ -25,7 +25,7 @@ const ro = new ResizeObserver((entries) => {
     overlay.width = width;
     overlay.height = height;
 
-    clouds.resize(width, height); // <-- NEW
+    clouds.resize(width, height);
   }
 });
 ro.observe(container);
@@ -86,17 +86,30 @@ initialPlaceCameraAndGrass(0.6);
 // interactions
 const interactions = createInteractions({ camera, scene, renderer, system });
 
-// NEW: Clouds (screen-edge) ------------------------------------------
+// Clouds with staging ------------------------------------------
 const clouds = createCloudsEffect(renderer, camera);
-// ---------------------------------------------------------------------
+// Hotkeys to step stages:
+// 1 = FSQ gradient -> screen
+// 2 = gradient -> RT -> composite
+// 3 = show mask render target
+// 6 = full clouds
+window.addEventListener("keydown", (e) => {
+  const k = e.key;
+  if (k === "1" || k === "2" || k === "3" || k === "6") {
+    // @ts-ignore
+    const stage = parseInt(k, 10);
+    clouds.setStage(stage as any);
+  }
+});
+// ----------------------------------------------------------------
 
 // loop
 const clock = new THREE.Clock();
 function render() {
   const dt = Math.min(0.033, clock.getDelta());
 
-  // Prepare mask for clouds BEFORE scene render
-  clouds.prepare(dt); // <-- NEW
+  // Prepare mask for clouds BEFORE scene render (stage >= 3 only)
+  clouds.prepare(dt);
 
   controls.update();
   updateHeartFrame(camera);
@@ -109,7 +122,7 @@ function render() {
   renderer.render(scene, camera);
 
   // Composite clouds AFTER scene render
-  clouds.draw(dt); // <-- NEW
+  clouds.draw(dt);
 
   requestAnimationFrame(render);
 }

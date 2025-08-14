@@ -18,7 +18,19 @@ export function createApp(container: HTMLElement, overlayCanvas: HTMLCanvasEleme
   camera.position.set(0, 50, 0);
   scene.add(camera);
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  // Force a WebGL2 context; if unavailable, WebGLRenderer will still create its own,
+  // but we’ll later no-op the clouds path to avoid shader errors.
+  const canvas = document.createElement("canvas");
+  const ctx = (canvas.getContext("webgl2", { alpha: true, antialias: true }) ||
+               undefined) as WebGL2RenderingContext | undefined;
+
+  const renderer = new THREE.WebGLRenderer({
+    canvas,
+    context: ctx as any,
+    antialias: true,
+    alpha: true
+  });
+
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   container.appendChild(renderer.domElement);
 
@@ -34,6 +46,10 @@ export function createApp(container: HTMLElement, overlayCanvas: HTMLCanvasEleme
   camera.updateProjectionMatrix();
   overlayCanvas.width = w;
   overlayCanvas.height = h;
+
+  if (!(renderer.capabilities as any).isWebGL2) {
+    console.warn("[app] WebGL2 not available; 3D-texture effects will be disabled.");
+  }
 
   return { THREE, scene, camera, renderer, controls };
 }

@@ -1,6 +1,4 @@
 export default /* glsl */ `
-struct Ray { vec3 origin; vec3 dir; };
-
 vec2 intersectAABB(Ray ray, vec3 boxMin, vec3 boxMax) {
   vec3 tMin = (boxMin - ray.origin) / ray.dir;
   vec3 tMax = (boxMax - ray.origin) / ray.dir;
