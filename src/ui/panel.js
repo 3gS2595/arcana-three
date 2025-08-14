@@ -1,3 +1,8 @@
+// src/ui/panel.js
+/**
+ * Lightweight simulation controls (count, power, showPaths, spin, reset).
+ * Overlay/HUD controls moved to src/ui/overlayPanel.js
+ */
 export function initUI() {
   const countSlider = document.getElementById('count');
   const powerSlider = document.getElementById('power');
@@ -8,22 +13,22 @@ export function initUI() {
   const resetBtn    = document.getElementById('resetBtn');
 
   const setLabels = () => {
-    countLabel.textContent = countSlider.value;
-    powerLabel.textContent = powerSlider.value;
+    if (countLabel && countSlider) countLabel.textContent = String(countSlider.value);
+    if (powerLabel && powerSlider) powerLabel.textContent = String(powerSlider.value);
   };
   setLabels();
 
   return {
     elements: { countSlider, powerSlider, showPaths, spinCards, resetBtn },
     onInput: (fn) => {
-      countSlider.addEventListener('input', () => { setLabels(); fn(); });
-      powerSlider.addEventListener('input', setLabels);
+      countSlider?.addEventListener('input', () => { setLabels(); fn?.(); });
+      powerSlider?.addEventListener('input', setLabels);
     },
     values: () => ({
-      count: countSlider.value | 0,
-      power: powerSlider.value | 0,
-      showPaths: !!showPaths.checked,
-      spin: !!spinCards.checked
+      count: countSlider?.value | 0,
+      power: powerSlider?.value | 0,
+      showPaths: !!showPaths?.checked,
+      spin: !!spinCards?.checked
     })
   };
 }

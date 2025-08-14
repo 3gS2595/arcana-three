@@ -1,38 +1,15 @@
-// src/env/lighting.js
 import { THREE } from '../core/three.js';
 
-/**
- * Make the scene look like "flat file preview":
- * - No directional/hemisphere shading
- * - No fog
- * - No tone mapping
- * - Uniform AmbientLight so textures are shown as-is
- *
- * This ONLY changes scene lighting / renderer settings.
- */
 export function setupFlatLighting(scene, renderer) {
-  // 1) Remove any existing lights in the scene
-  const toRemove = [];
-  scene.traverse(obj => {
-    if (obj.isLight) toRemove.push(obj);
-  });
-  for (const l of toRemove) {
-    if (l.parent) l.parent.remove(l);
-  }
+  renderer.shadowMap.enabled = false;
+  renderer.toneMapping = THREE.NoToneMapping;
 
-  // 2) Disable fog (keeps colors/crispness intact)
-  scene.fog = null;
+  const hemi = new THREE.HemisphereLight(0xbfe3ff, 0x203024, 0.8);
+  const dir = new THREE.DirectionalLight(0xffffff, 1.05);
+  dir.position.set(25, 50, -20);
+  dir.target.position.set(0, 2.5, 0);
 
-  // 3) Make renderer show textures without tone mapping shifts
-  if (renderer) {
-    renderer.toneMapping = THREE.NoToneMapping;
-    // keep sRGB output so UI/texture colors look correct
-    if ('outputColorSpace' in renderer) {
-      renderer.outputColorSpace = THREE.SRGBColorSpace;
-    }
-  }
+  const amb = new THREE.AmbientLight(0xffffff, 2);
 
-  // 4) Add a single ambient light for uniform illumination
-  const ambient = new THREE.AmbientLight(0xffffff, 2.0);
-  scene.add(ambient);
+  scene.add(amb);
 }

@@ -1,19 +1,33 @@
 import { THREE } from '../core/three.js';
 
-export function buildSkyDome({radius=500} = {}) {
-  const c = document.createElement('canvas'); c.width = 1024; c.height = 512;
-  const ctx = c.getContext('2d');
-  const g = ctx.createLinearGradient(0,0,0,c.height);
-  g.addColorStop(0.0, '#7fc8ff');
-  g.addColorStop(0.6, '#a8d8ff');
-  g.addColorStop(1.0, '#e6f3ff');
-  ctx.fillStyle = g; ctx.fillRect(0,0,c.width,c.height);
-
-  const tex = new THREE.CanvasTexture(c);
-  if ('colorSpace' in tex) tex.colorSpace = THREE.SRGBColorSpace; else tex.encoding = THREE.sRGBEncoding;
-
-  const geom = new THREE.SphereGeometry(radius, 32, 16);
-  const mat  = new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide });
-  const dome = new THREE.Mesh(geom, mat);
-  return dome;
+export function buildSkyDome({ radius = 600 } = {}) {
+  const geom = new THREE.SphereGeometry(radius, 32, 24);
+  const mat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    depthWrite: false,
+    uniforms: {
+      top: { value: new THREE.Color(0x0e1722) },
+      mid: { value: new THREE.Color(0x0c1320) },
+      bottom: { value: new THREE.Color(0x0a0f18) }
+    },
+    vertexShader: `
+      varying vec3 vPos;
+      void main(){
+        vPos = position;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);
+      }
+    `,
+    fragmentShader: `
+      varying vec3 vPos;
+      uniform vec3 top; uniform vec3 mid; uniform vec3 bottom;
+      void main(){
+        float h = normalize(vPos).y * 0.5 + 0.5; // 0..1
+        vec3 c = mix(bottom, mix(mid, top, smoothstep(0.5,1.0,h)), smoothstep(0.0,1.0,h));
+        gl_FragColor = vec4(c, 1.0);
+      }
+    `
+  });
+  const mesh = new THREE.Mesh(geom, mat);
+  mesh.name = 'SkyDome';
+  return mesh;
 }

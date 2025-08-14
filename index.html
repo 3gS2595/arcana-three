@@ -7,58 +7,19 @@
 <link rel="stylesheet" href="./styles/main.css" />
 </head>
 <body>
-<div id="app">
-  <div id="ui">
-    <div class="panel">
-      <h1>Card Fountain <span class="pill">3D</span></h1>
-      <div class="small">A fountain emitter flings playing cards upward with gravity and drag. Toggle paths to see trajectories.</div>
-    </div>
-
-    <div class="panel">
-      <label>Colony size <span id="countLabel">30</span></label>
-      <input id="count" type="range" min="5" max="120" value="60" />
-      <div class="small">Number of active cards in the simulation.</div>
-    </div>
-
-    <div class="panel">
-      <label>Resource availability <span id="powerLabel">50</span></label>
-      <input id="power" type="range" min="0" max="1000" value="1000" />
-      <div class="small">Controls emission rate & initial velocity (stronger fountain = higher arcs).</div>
-    </div>
-
-    <div class="panel">
-      <div class="row">
-        <input id="showPaths" type="checkbox" checked />
-        <label for="showPaths" style="margin:0;flex:1">Show card paths</label>
-      </div>
-      <div class="row">
-        <input id="spinCards" type="checkbox" checked />
-        <label for="spinCards" style="margin:0;flex:1">Spin cards</label>
-      </div>
-      <div class="row">
-        <input id="resetBtn" type="button" value="Reset Fountain" />
-      </div>
-    </div>
-
-    <div class="panel footer">
-      Tip: drag with the mouse to orbit, scroll to zoom.<br/>
-      Built with Three.js (UMD). No external images; card faces are drawn on canvas.
-    </div>
-  </div>
-
   <div id="viewport">
     <div id="renderer"></div>
     <canvas id="overlay"></canvas>
   </div>
-</div>
-<script type="importmap">
-{
-  "imports": {
-    "three": "./node_modules/three/build/three.module.js",
-    "three/addons/": "./node_modules/three/examples/jsm/"
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./node_modules/three/build/three.module.js",
+      "three/addons/": "./node_modules/three/examples/jsm/"
+    }
   }
-}
-</script>
-<script type="module" src="./src/main.js"></script>
+  </script>
+  <script type="module" src="./src/main.js"></script>
 </body>
 </html>
