@@ -9,7 +9,7 @@ export function createInteractions({ camera, scene, renderer, system }) {
       distance: 0.8,      // in front of camera
       margin: 0.65,       // 1.0 = exact fit, <1 inset (KEEPING your override)
       fitMode: 'contain', // full image visible
-      animDur: 2          // smooth timing you set
+      animDur: 1.2          // smooth timing you set
     }
   });
 

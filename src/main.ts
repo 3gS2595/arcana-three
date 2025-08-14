@@ -6,12 +6,13 @@ import { CARD_H } from "@/cards/mesh";
 import { setupFlatLighting } from "@/environment/lighting";
 import { runBoot } from "@/runtime/boot";
 import { createInteractions } from "@/interaction";
+import { createCloudsEffect } from "@/effects/clouds"; // <-- NEW
 
 const container = document.getElementById("renderer") as HTMLDivElement;
 const overlay = document.getElementById("overlay") as HTMLCanvasElement;
 const { scene, camera, renderer, controls } = createApp(container, overlay);
 
-// boot: progress, overlay GLB + images, wait for Start; overlay fades in inside runBoot
+// boot
 const { frameOverlay, imageDeck } = await runBoot(scene);
 
 // resize
@@ -23,6 +24,8 @@ const ro = new ResizeObserver((entries) => {
     camera.updateProjectionMatrix();
     overlay.width = width;
     overlay.height = height;
+
+    clouds.resize(width, height); // <-- NEW
   }
 });
 ro.observe(container);
@@ -45,7 +48,7 @@ const UI = {
   })
 };
 
-// camera placement vs heart (grass calls kept as-is if present)
+// camera placement vs heart (kept)
 function initialPlaceCameraAndGrass(occupancy = 0.6) {
   updateHeartFrame(camera);
   const bounds = system.getHeartBoundsWorld?.();
@@ -60,9 +63,9 @@ function initialPlaceCameraAndGrass(occupancy = 0.6) {
   const heartH = Math.max(size.y, 1e-4);
   const gap = 0.1 * heartH + 0.008 * Math.sqrt(Math.max(1, imageDeck.length)) * CARD_H;
 
-  // @ts-expect-error grassPatch is defined elsewhere in your project; preserved
+  // @ts-expect-error grassPatch preserved
   grassPatch.position.set(bx, by - gap, bz);
-  // @ts-expect-error grassPatch is defined elsewhere in your project; preserved
+  // @ts-expect-error grassPatch preserved
   grassPatch.scale.set(1, 1, 1);
 
   const vFOV = THREE.MathUtils.degToRad(camera.fov);
@@ -78,16 +81,23 @@ function initialPlaceCameraAndGrass(occupancy = 0.6) {
   camera.up.set(0, 1, 0);
   camera.updateProjectionMatrix();
 }
-
 initialPlaceCameraAndGrass(0.6);
 
 // interactions
 const interactions = createInteractions({ camera, scene, renderer, system });
 
+// NEW: Clouds (screen-edge) ------------------------------------------
+const clouds = createCloudsEffect(renderer, camera);
+// ---------------------------------------------------------------------
+
 // loop
 const clock = new THREE.Clock();
 function render() {
   const dt = Math.min(0.033, clock.getDelta());
+
+  // Prepare mask for clouds BEFORE scene render
+  clouds.prepare(dt); // <-- NEW
+
   controls.update();
   updateHeartFrame(camera);
   frameOverlay.update(camera);
@@ -95,12 +105,12 @@ function render() {
   interactions.update(dt);
   system.step(dt, UI.values(), camera);
 
-  // @ts-expect-error grassPatch external; preserved
-  if (typeof grassPatch !== "undefined") {
-    // keep your existing follow logic if desired
-  }
-
+  // normal scene
   renderer.render(scene, camera);
+
+  // Composite clouds AFTER scene render
+  clouds.draw(dt); // <-- NEW
+
   requestAnimationFrame(render);
 }
 render();

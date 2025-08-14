@@ -6,9 +6,9 @@ import overlayUrl from "@/assets/overlay.glb?url";
 export async function setupFrameOverlay(scene: THREE.Scene) {
   const frameOverlay = new FrameBorderOverlay({
     url: overlayUrl,
-    marginV: 0.01,
-    marginH: 0.01,
-    distance: 2.0,
+    marginV: 0.09,
+    marginH: 0.09,
+    distance: 3.0,
     renderOnTop: true,
     scalingMode: "stretch",
     lighting: "normals",
