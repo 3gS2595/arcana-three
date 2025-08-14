@@ -1,12 +1,12 @@
 import { THREE } from "@/core/three";
-import * as K from "@/sim/system/constants";
-import { createState } from "@/sim/system/state";
-import { spawnCard, ensurePool } from "@/sim/system/spawn";
-import { integrateFlying } from "@/sim/system/physics";
-import { homeTowards } from "@/sim/system/homing";
-import { billboardTowardCamera } from "@/sim/system/billboard";
-import { decideTrail } from "@/sim/system/trailsDriver";
-import { generateTargets, heartLocalToWorld } from "@/sim/system/targets";
+import * as K from "@/engine/system/constants";
+import { createState } from "@/engine/system/state";
+import { spawnCard, ensurePool } from "@/engine/system/spawn";
+import { integrateFlying } from "@/engine/system/physics";
+import { homeTowards } from "@/engine/system/homing";
+import { billboardTowardCamera } from "@/engine/system/billboard";
+import { decideTrail } from "@/engine/system/trailsDriver";
+import { generateTargets, heartLocalToWorld } from "@/engine/system/targets";
 
 export interface SystemCard {
   group: THREE.Group;

@@ -34,8 +34,10 @@ export function makeImageCardMesh(imageTexture: THREE.Texture, aspect = 1.0): Bu
   const width = CARD_H * Math.max(aspect, 0.05);
   const height = CARD_H;
 
+  // Shared geometry for both sides
   const geo = new THREE.PlaneGeometry(width, height, 1, 1);
 
+  // Front material
   const matFront = new THREE.MeshStandardMaterial({
     map: imageTexture,
     metalness: 0.0,
@@ -43,22 +45,29 @@ export function makeImageCardMesh(imageTexture: THREE.Texture, aspect = 1.0): Bu
     side: THREE.FrontSide
   });
 
+  // Back material (distinct texture instance so we can rotate it)
   const base = loadBaseBackTexture();
   const backTex = base.clone();
   backTex.needsUpdate = true;
   backTex.center.set(0.5, 0.5);
   backTex.rotation = aspect > 1.0 ? Math.PI * 0.5 : 0.0;
 
+  // IMPORTANT: use FrontSide on the back mesh and rotate the geometry by PI,
+  // so we always render the outward-facing side of that plane.
   const matBack = new THREE.MeshStandardMaterial({
     map: backTex,
     metalness: 0.0,
     roughness: 0.9,
-    side: THREE.BackSide
+    side: THREE.FrontSide
   });
 
   const front = new THREE.Mesh(geo, matFront);
   const back = new THREE.Mesh(geo, matBack);
+
+  // Flip the back geometry so its FRONT faces the opposite direction
   back.rotateY(Math.PI);
+
+  // Give a tiny thickness so faces never z-fight
   front.position.z = CARD_T;
   back.position.z = -CARD_T;
 

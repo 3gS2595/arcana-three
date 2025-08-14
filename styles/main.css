@@ -38,6 +38,8 @@ a{color:#9ecbff;text-decoration:none}
 .boot-card{
   width:min(560px, 92vw);
   padding:24px 20px 18px;
+  display: flex;
+  flex-direction: column;
 }
 .boot-title{
   margin:0 0 16px 0;
