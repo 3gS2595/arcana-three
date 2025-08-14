@@ -1,13 +1,13 @@
 import { THREE } from "@/core/three";
-import { updateHeartFrame, heartLocalToWorld } from "@/sim/heart";
+import { updateHeartFrame, heartLocalToWorld } from "@/engine/heart";
 import { createPicker } from "@/interaction/picker";
-import { updateTrail as updateTrailLine } from "@/sim/trails";
+import { updateTrail as updateTrailLine } from "@/engine/trails";
 import { makeCurveTowardCenter } from "./focus/path";
 import { makeFocusAnchor, attachToAnchor } from "./focus/attachment";
 import { computeFocusScale } from "./focus/sizing";
 import { stepAnimation } from "./focus/animation";
 import type { AnimState } from "./focus/animation";
-import type { SystemAPI, SystemCard } from "@/sim/system";
+import type { SystemAPI, SystemCard } from "@/engine/system";
 
 export interface FocusOptions {
   distance?: number;

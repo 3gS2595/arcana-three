@@ -1,5 +1,5 @@
 import { THREE } from "@/core/three";
-import { HEART_CENTER } from "@/sim/heart";
+import { HEART_CENTER } from "@/engine/heart";
 
 /** cubic bezier interpolate (inlined to avoid deps) */
 export function cubicBezier(p0: THREE.Vector3, p1: THREE.Vector3, p2: THREE.Vector3, p3: THREE.Vector3, t: number, out = new THREE.Vector3()): THREE.Vector3 {

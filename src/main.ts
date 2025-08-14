@@ -1,10 +1,10 @@
 import { THREE } from "@/core/three";
 import { createApp } from "@/core/app";
-import { buildSkyDome } from "@/env/sky";
-import { createSystem } from "@/sim/system";
-import { updateHeartFrame } from "@/sim/heart";
+import { buildSkyDome } from "@/environment/sky";
+import { createSystem } from "@/engine/system";
+import { updateHeartFrame } from "@/engine/heart";
 import { CARD_H } from "@/cards/mesh";
-import { setupFlatLighting } from "@/env/lighting";
+import { setupFlatLighting } from "@/environment/lighting";
 import { runBoot } from "@/runtime/boot";
 import { createInteractions } from "@/interaction";
 
