@@ -1,6 +1,5 @@
 import { THREE } from "@/core/three";
 import { createApp } from "@/core/app";
-import { buildSkyDome } from "@/environment/sky";
 import { createSystem } from "@/engine/system";
 import { updateHeartFrame } from "@/engine/heart";
 import { CARD_H } from "@/cards/mesh";
@@ -29,8 +28,6 @@ const ro = new ResizeObserver((entries) => {
 ro.observe(container);
 
 // env
-const sky = buildSkyDome({ radius: 800 });
-scene.add(sky);
 setupFlatLighting(scene, renderer);
 
 // sim
