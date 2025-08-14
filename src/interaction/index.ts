@@ -1,6 +1,6 @@
 // src/interaction/index.js
 // Aggregates all interaction modules; main.js stays feature-agnostic.
-import { createFocusController } from './focus/index.js';
+import { createFocusController } from './focusController.js';
 
 export function createInteractions({ camera, scene, renderer, system }) {
   const focus = createFocusController({
