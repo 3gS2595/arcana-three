@@ -7,7 +7,8 @@ import { updateHeartFrame } from './sim/heart.js';
 import { CARD_H } from './cards/mesh.js';
 import { setupFlatLighting } from './env/lighting.js';
 import { runBoot } from './runtime/boot.js';
-import { createInteractions } from './interaction/index.js';
+// ⬇️ Updated import to new path/name
+import { createFocusController } from './interaction/focusControler.js';
 
 const container = document.getElementById('renderer');
 const overlay   = document.getElementById('overlay');
@@ -122,7 +123,7 @@ system.reset(UI.values().power);
 initialPlaceCameraAndGrass(0.60);
 
 // Interactions (focus click-in/out)
-const interactions = createInteractions({ camera, scene, renderer, system });
+const focus = createFocusController({ camera, scene, renderer, system });
 
 // Render loop
 const clock = new THREE.Clock();
@@ -132,7 +133,7 @@ function render() {
   updateHeartFrame(camera);
   frameOverlay.update(camera);
 
-  interactions.update(dt);
+  focus.update(dt);
   system.step(dt, UI.values(), camera);
   updateGrassUnderHeart();
 
@@ -144,7 +145,7 @@ render();
 // Keyboard reset (kept)
 window.addEventListener('keydown', (e) => {
   if (e.key.toLowerCase() === 'r') {
-    interactions.clear();
+    focus.clear();
     system.reset(UI.values().power);
   }
 });
