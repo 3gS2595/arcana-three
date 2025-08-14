@@ -1,41 +1,29 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>3D Playing Card Fountain — Modular</title>
-<link rel="stylesheet" href="./styles/main.css" />
-</head>
-<body>
-  <!-- Boot / Loading Overlay -->
-  <div id="boot" aria-live="polite">
-    <div class="boot-card">
-      <h1 class="boot-title">Loading…</h1>
-      <div class="boot-bar">
-        <div id="bootProgressFill" class="boot-fill" style="width:0%"></div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>3D Playing Card Fountain — TypeScript</title>
+    <link rel="stylesheet" href="./styles/main.css" />
+  </head>
+  <body>
+    <div id="boot" aria-live="polite">
+      <div class="boot-card">
+        <h1 class="boot-title">Loading…</h1>
+        <div class="boot-bar"><div id="bootProgressFill" class="boot-fill" style="width:0%"></div></div>
+        <div class="boot-meta">
+          <span id="bootPercent">0%</span>
+          <span id="bootStatus" class="boot-status">Preparing assets</span>
+        </div>
+        <button id="bootStart" class="boot-start" disabled>Start</button>
       </div>
-      <div class="boot-meta">
-        <span id="bootPercent">0%</span>
-        <span id="bootStatus" class="boot-status">Preparing assets</span>
-      </div>
-      <button id="bootStart" class="boot-start" disabled>Start</button>
     </div>
-  </div>
 
-  <!-- App Viewport (hidden until Start is clicked) -->
-  <div id="viewport" class="hidden">
-    <div id="renderer"></div>
-    <canvas id="overlay"></canvas>
-  </div>
+    <div id="viewport" class="hidden">
+      <div id="renderer"></div>
+      <canvas id="overlay"></canvas>
+    </div>
 
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "./node_modules/three/build/three.module.js",
-      "three/addons/": "./node_modules/three/examples/jsm/"
-    }
-  }
-  </script>
-  <script type="module" src="./src/main.js"></script>
-</body>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
 </html>
