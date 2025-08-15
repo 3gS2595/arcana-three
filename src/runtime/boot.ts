@@ -3,6 +3,8 @@ import { setupFrameOverlay } from "@/runtime/overlayFrame";
 import { loadImageDeck } from "@/cards/imageDeck";
 // use the same back.png URL the mesh system uses so it participates in the loader progress
 import backUrl from "@/assets/back.png?url";
+// NEW: audio asset as a module URL (works in dev & build)
+import darkHourUrl from "@/assets/audio/DarkHour.wav?url";
 
 export interface BootResult {
   frameOverlay: Awaited<ReturnType<typeof setupFrameOverlay>>;
@@ -16,6 +18,11 @@ export async function runBoot(scene: THREE.Scene): Promise<BootResult> {
   const $pct = document.getElementById("bootPercent")!;
   const $status = document.getElementById("bootStatus")!;
   const $start = document.getElementById("bootStart") as HTMLButtonElement;
+
+  // Prepare audio (will be played on Start click — user gesture OK)
+  const startAudio = new Audio(darkHourUrl);
+  startAudio.preload = "auto";
+  startAudio.volume = 0.7; // tweak to taste
 
   const setProgress = (p: number) => {
     const clamped = Math.max(0, Math.min(100, Math.round(p)));
@@ -64,7 +71,23 @@ export async function runBoot(scene: THREE.Scene): Promise<BootResult> {
   setProgress(100);
   $start.disabled = false;
 
-  await new Promise<void>((resolve) => $start.addEventListener("click", () => resolve(), { once: true }));
+  // Play audio on Start click, then proceed with fade-in
+  await new Promise<void>((resolve) =>
+    $start.addEventListener(
+      "click",
+      async () => {
+        try {
+          // Reset & play; in case user clicks after a reload
+          startAudio.currentTime = 0;
+          await startAudio.play();
+        } catch (err) {
+          console.warn("[audio] failed to play DarkHour.wav:", err);
+        }
+        resolve();
+      },
+      { once: true }
+    )
+  );
 
   // fade-in overlay gracefully
   frameOverlay.setOpacity(0);

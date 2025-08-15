@@ -5,14 +5,17 @@ import { updateHeartFrame } from "@/engine/heart";
 import { CARD_H } from "@/cards/mesh";
 import { setupFlatLighting } from "@/environment/lighting";
 import { runBoot } from "@/runtime/boot";
-import { createInteractions } from "@/interaction";
-import { cycleShape } from "@/shapes";
+import { createInteractions, onCardSelect } from "@/interaction";
+import { cycleShape, onShapeChange } from "@/shapes";
+// Audio
+import accessPointUrl from "@/assets/audio/AccessPoint.wav?url";
+import selectUrl from "@/assets/audio/Select.wav?url";
 
 const container = document.getElementById("renderer") as HTMLDivElement;
 const overlay = document.getElementById("overlay") as HTMLCanvasElement;
 const { scene, camera, renderer, controls } = createApp(container, overlay);
 
-// boot: progress, overlay GLB + images, wait for Start; overlay fades in inside runBoot
+// boot
 const { frameOverlay, imageDeck } = await runBoot(scene);
 
 // resize
@@ -46,7 +49,7 @@ const UI = {
   })
 };
 
-// camera placement vs shape (uses the camera-facing frame)
+// camera placement vs shape
 function initialPlaceCameraAndGrass(occupancy = 0.6) {
   updateHeartFrame(camera);
   const bounds = system.getHeartBoundsWorld?.();
@@ -79,14 +82,39 @@ function initialPlaceCameraAndGrass(occupancy = 0.6) {
   camera.up.set(0, 1, 0);
   camera.updateProjectionMatrix();
 }
-
-// Prepare initial ring (generated lazily by createSystem on first step/reset)
 initialPlaceCameraAndGrass(0.6);
 
 // interactions
 const interactions = createInteractions({ camera, scene, renderer, system });
 
-// loop
+/* ---------- Audio hooks ---------- */
+// Shape-change audio
+const shapeAudio = new Audio(accessPointUrl);
+shapeAudio.preload = "auto";
+shapeAudio.volume = 0.7;
+onShapeChange(() => {
+  try {
+    shapeAudio.currentTime = 0;
+    void shapeAudio.play();
+  } catch (err) {
+    console.warn("[audio] failed to play AccessPoint.wav:", err);
+  }
+});
+
+// Card-select audio
+const selectAudio = new Audio(selectUrl);
+selectAudio.preload = "auto";
+selectAudio.volume = 0.7;
+onCardSelect(() => {
+  try {
+    selectAudio.currentTime = 0;
+    void selectAudio.play();
+  } catch (err) {
+    console.warn("[audio] failed to play Select.wav:", err);
+  }
+});
+
+/* ---------- Loop ---------- */
 const clock = new THREE.Clock();
 function render() {
   const dt = Math.min(0.033, clock.getDelta());
@@ -101,24 +129,22 @@ function render() {
   if (typeof grassPatch !== "undefined") {
     // keep your existing follow logic if desired
   }
-  
+
   renderer.render(scene, camera);
   requestAnimationFrame(render);
 }
 render();
 
+/* ---------- Hotkeys ---------- */
 window.addEventListener("keydown", (e) => {
   const k = e.key.toLowerCase();
   if (k === "r") {
     interactions.clear();
     system.reset(UI.values().power);
   } else if (k === "c") {
-    // Make sure no card is mid-focus; then morph with style
     interactions.clear();
-    const next = cycleShape();
-    // Build new targets and animate morph
+    const next = cycleShape(); // triggers shapeAudio
     system.morphToNewTargets(camera, { duration: 0.75 });
-    // Reframe camera for the new outline
     initialPlaceCameraAndGrass(0.6);
     console.log("[shape] switched to:", next);
   }

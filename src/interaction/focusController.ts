@@ -21,6 +21,32 @@ export interface FocusController {
   dispose: () => void;
 }
 
+/* -----------------------------
+   Selection event pub/sub
+   ----------------------------- */
+type SelectListener = (card: SystemCard) => void;
+type ReleaseListener = (card: SystemCard) => void;
+const _selectListeners = new Set<SelectListener>();
+const _releaseListeners = new Set<ReleaseListener>();
+
+function _notifySelect(card: SystemCard) {
+  for (const fn of _selectListeners) fn(card);
+}
+function _notifyRelease(card: SystemCard) {
+  for (const fn of _releaseListeners) fn(card);
+}
+
+/** Subscribe to card-selection events (fires when a card begins focus-in). */
+export function onCardSelect(fn: SelectListener): () => void {
+  _selectListeners.add(fn);
+  return () => _selectListeners.delete(fn);
+}
+/** Subscribe to card-release events (fires when a card begins focus-out). */
+export function onCardRelease(fn: ReleaseListener): () => void {
+  _releaseListeners.add(fn);
+  return () => _releaseListeners.delete(fn);
+}
+
 export function createFocusController({
   camera,
   scene,
@@ -97,6 +123,8 @@ export function createFocusController({
   }
 
   function focusCard(card: SystemCard) {
+    _notifySelect(card); // <-- fire selection event
+
     card._preFocusQuat = worldQuatOf(card.group).clone();
     card.velocity.set(0, 0, 0);
     card.angular.set(0, 0, 0);
@@ -122,6 +150,8 @@ export function createFocusController({
   }
 
   function releaseCard(card: SystemCard) {
+    _notifyRelease(card); // <-- fire release event
+
     const curWorldPos = worldPosOf(card.group);
     const curWorldQuat = worldQuatOf(card.group);
     const curScale = card.group.scale.x;

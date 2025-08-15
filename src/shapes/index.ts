@@ -11,17 +11,32 @@ const ORDER: ShapeId[] = ["heart", "star", "hourglass"];
 
 let current: ShapeId = "heart";
 
+/** Shape-change listeners (pub/sub) */
+type ShapeChangeListener = (id: ShapeId) => void;
+const listeners = new Set<ShapeChangeListener>();
+
+/** Subscribe to shape changes; returns an unsubscribe function. */
+export function onShapeChange(fn: ShapeChangeListener): () => void {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+function notify() {
+  for (const fn of listeners) fn(current);
+}
+
 export function getCurrentShapeId(): ShapeId {
   return current;
 }
 
 export function setCurrentShapeId(id: ShapeId) {
   current = id;
+  notify();
 }
 
 export function cycleShape(): ShapeId {
   const i = ORDER.indexOf(current);
   current = ORDER[(i + 1) % ORDER.length];
+  notify();
   return current;
 }
 
