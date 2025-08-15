@@ -103,13 +103,6 @@ npm run preview
 
 - **No cards visible**
   - Ensure `src/assets/back.png` exists and **at least one** face image is present under `src/assets/images/` (or the public alternatives).
-- **Build error importing `@/assets/back.png?url`**
-  - Add the missing file under `src/assets/back.png`.
-- **Overlay appears but doesn’t fit the viewport**
-  - Adjust `marginH/marginV`, `distance`, or switch `scalingMode` to `"fit"`.
-- **Type errors in focus sizing**
-  - Ensure the type import is from `@/engine/system` if you reference `SystemCard` in external code.
-
 ---
 
 ## License
@@ -117,8 +110,3 @@ npm run preview
 Specify your license in `LICENSE` (e.g., MIT).  
 
 ---
-
-## Credits
-
-- [Three.js](https://threejs.org/)
-- Vite + TypeScript toolchain
