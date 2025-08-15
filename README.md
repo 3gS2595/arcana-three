@@ -38,18 +38,6 @@ npm run preview
   - Ensure `src/assets/back.png` exists and **at least one** face image is present under `src/assets/images/` (or the public alternatives).
 ---
 
-## Features
-
-- **Image deck → cards:** Each face image becomes a dual-sided mesh with a rotated back for landscape fronts.
-- **Emitter & physics:** Cards launch upward with drag/gravity, then transition to homing.
-- **Heart targets:** High-res parametric outline scaled by **per-card width + margins**; always faces the camera.
-- **Trails:** Simple line strips that insert while moving and decay when idle; anchored to the card’s front face.
-- **Focus interaction:** Click a card to animate it in front of the camera (contain/height fit), click again to return it to the heart slot.
-- **Frame overlay (GLB):** Camera-attached border with **unlit / normals / material** display modes, margin & scaling controls.
-- **Boot UI:** Progress bar merges GLTF/texture + image-deck loading; click **Start** to fade in the overlay and enter the scene.
-
----
-
 ## License
 
 Specify your license in `LICENSE` (e.g., MIT).  
