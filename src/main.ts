@@ -6,7 +6,7 @@ import { CARD_H } from "@/cards/mesh";
 import { setupFlatLighting } from "@/environment/lighting";
 import { runBoot } from "@/runtime/boot";
 import { createInteractions } from "@/interaction";
-import { cycleShape, getCurrentShapeId } from "@/shapes";
+import { cycleShape } from "@/shapes";
 
 const container = document.getElementById("renderer") as HTMLDivElement;
 const overlay = document.getElementById("overlay") as HTMLCanvasElement;
@@ -113,10 +113,12 @@ window.addEventListener("keydown", (e) => {
     interactions.clear();
     system.reset(UI.values().power);
   } else if (k === "c") {
+    // Make sure no card is mid-focus; then morph with style
+    interactions.clear();
     const next = cycleShape();
-    // Force targets to rebuild for the new shape:
-    system.prepareHeartTargets();
-    // Optionally: reframe the camera to nicely fit the new outline:
+    // Build new targets and animate morph
+    system.morphToNewTargets(camera, { duration: 0.75 });
+    // Reframe camera for the new outline
     initialPlaceCameraAndGrass(0.6);
     console.log("[shape] switched to:", next);
   }
