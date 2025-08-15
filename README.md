@@ -1,8 +1,7 @@
 
 # WIP <br> [The Wrong Biennale](https://thewrong.org/), [Arcana](http://a-r-c-a-n-a.moe) pavilion <br> TypeScript, Three.js, Vite
 
-
-![bladelice01](https://github.com/user-attachments/assets/6f1fce59-f389-473f-b7a3-6cfda048c629)
+![1231111](https://github.com/user-attachments/assets/9c496462-2330-4d12-857c-5e4c648bd417)
 <!-- clown court as the morning dew settles on the ground so shall the blood of our enemies -->
 
 ### Prerequisites
