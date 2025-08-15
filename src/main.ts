@@ -101,7 +101,7 @@ function render() {
   if (typeof grassPatch !== "undefined") {
     // keep your existing follow logic if desired
   }
-
+  
   renderer.render(scene, camera);
   requestAnimationFrame(render);
 }

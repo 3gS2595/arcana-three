@@ -15,7 +15,7 @@ export function createApp(container: HTMLElement, overlayCanvas: HTMLCanvasEleme
   scene.fog = new THREE.Fog(0x0f141b, 180, 900);
 
   const camera = new THREE.PerspectiveCamera(55, 2, 0.1, 200);
-  camera.position.set(0, 50, 0);
+  camera.position.set(0, 17.867843234976252, 0);
   scene.add(camera);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
