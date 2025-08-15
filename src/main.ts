@@ -6,6 +6,7 @@ import { CARD_H } from "@/cards/mesh";
 import { setupFlatLighting } from "@/environment/lighting";
 import { runBoot } from "@/runtime/boot";
 import { createInteractions } from "@/interaction";
+import { cycleShape, getCurrentShapeId } from "@/shapes";
 
 const container = document.getElementById("renderer") as HTMLDivElement;
 const overlay = document.getElementById("overlay") as HTMLCanvasElement;
@@ -45,7 +46,7 @@ const UI = {
   })
 };
 
-// camera placement vs heart (grass calls kept as-is if present)
+// camera placement vs shape (uses the camera-facing frame)
 function initialPlaceCameraAndGrass(occupancy = 0.6) {
   updateHeartFrame(camera);
   const bounds = system.getHeartBoundsWorld?.();
@@ -57,8 +58,8 @@ function initialPlaceCameraAndGrass(occupancy = 0.6) {
   const by = bottomP ? bottomP.y : minY;
   const bz = bottomP ? bottomP.z : center.z;
 
-  const heartH = Math.max(size.y, 1e-4);
-  const gap = 0.1 * heartH + 0.008 * Math.sqrt(Math.max(1, imageDeck.length)) * CARD_H;
+  const shapeH = Math.max(size.y, 1e-4);
+  const gap = 0.1 * shapeH + 0.008 * Math.sqrt(Math.max(1, imageDeck.length)) * CARD_H;
 
   // @ts-expect-error grassPatch is defined elsewhere in your project; preserved
   grassPatch.position.set(bx, by - gap, bz);
@@ -79,6 +80,7 @@ function initialPlaceCameraAndGrass(occupancy = 0.6) {
   camera.updateProjectionMatrix();
 }
 
+// Prepare initial ring (generated lazily by createSystem on first step/reset)
 initialPlaceCameraAndGrass(0.6);
 
 // interactions
@@ -106,8 +108,16 @@ function render() {
 render();
 
 window.addEventListener("keydown", (e) => {
-  if (e.key.toLowerCase() === "r") {
+  const k = e.key.toLowerCase();
+  if (k === "r") {
     interactions.clear();
     system.reset(UI.values().power);
+  } else if (k === "c") {
+    const next = cycleShape();
+    // Force targets to rebuild for the new shape:
+    system.prepareHeartTargets();
+    // Optionally: reframe the camera to nicely fit the new outline:
+    initialPlaceCameraAndGrass(0.6);
+    console.log("[shape] switched to:", next);
   }
 });

@@ -1,2 +1,3 @@
 export { HEART_CENTER, heartFrame, updateHeartFrame, heartLocalToWorld } from "@/engine/heart/frame";
-export { generateHeartPoints, generateHeartPointsVariable } from "@/engine/heart/sampling";
+// Re-export heart sampling from shapes so legacy imports keep working:
+export { generateHeartPoints, generateHeartPointsVariable } from "@/shapes/heart";

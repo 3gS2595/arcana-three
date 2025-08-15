@@ -1,7 +1,8 @@
-import { CARD_MARGIN_ABS, SIDE_BUFFER_ABS } from './constants.js';
-import { generateHeartPointsVariable } from '../heart.js';
-import { heartLocalToWorld as _hl2w } from '../heart.js';
-import { CARD_H } from '../../cards/mesh.js';
+import { CARD_MARGIN_ABS, SIDE_BUFFER_ABS } from "./constants.js";
+import { heartLocalToWorld as _hl2w } from "../heart.js";
+import { CARD_H } from "../../cards/mesh.js";
+import { getPointsForSpacings } from "@/shapes";
+import { THREE } from "../../core/three.js";
 
 export function generateTargets(state) {
   const n = state.cards.length;
@@ -13,12 +14,11 @@ export function generateTargets(state) {
     spacings[i] = Math.max(1e-4, w + CARD_MARGIN_ABS + 2 * SIDE_BUFFER_ABS);
   }
 
-  const pts = generateHeartPointsVariable(spacings);
-  for (let i = 0; i < n; i++) {
-    state.cards[i].targetLocal = pts[i % pts.length].clone();
-  }
+  // Points in LOCAL XY of the camera-facing frame:
+  const pts = getPointsForSpacings(spacings);
+  for (let i = 0; i < n; i++) state.cards[i].targetLocal = pts[i % pts.length].clone();
 
-  // Public bounds helpers (avoid recompute per frame)
+  // Public bounds helpers:
   state.publicAPI.getHeartBoundsWorld = function() {
     if (!pts.length) return null;
     const min = { x: +Infinity, y: +Infinity, z: +Infinity };
@@ -46,6 +46,3 @@ export function generateTargets(state) {
 
 // passthrough for consumers
 export const heartLocalToWorld = _hl2w;
-
-// NOTE: import THREE locally to avoid circulars in build setups
-import { THREE } from '../../core/three.js';
