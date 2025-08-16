@@ -14,7 +14,7 @@ export function makeTrail(color = 0xff0000, maxPoints = 40) {
   const mat = new THREE.LineBasicMaterial({
     color,
     transparent: true,
-    opacity: 0.65,
+    opacity: 0.25,
     fog: true
   });
 

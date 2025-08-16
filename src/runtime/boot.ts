@@ -2,7 +2,7 @@ import { THREE } from "@/core/three";
 import { setupFrameOverlay } from "@/runtime/overlayFrame";
 import { loadImageDeck } from "@/cards/imageDeck";
 // use the same back.png URL the mesh system uses so it participates in the loader progress
-import backUrl from "@/assets/back.png?url";
+import backUrl from "@/assets/images/back.png?url";
 // NEW: audio asset as a module URL (works in dev & build)
 import darkHourUrl from "@/assets/audio/DarkHour.wav?url";
 

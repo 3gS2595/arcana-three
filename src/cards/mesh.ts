@@ -1,6 +1,6 @@
 import { THREE } from "@/core/three";
 // import back.png as a module URL so Vite serves it correctly
-import backUrl from "@/assets/back.png?url";
+import backUrl from "@/assets/images/back.png?url";
 
 export const CARD_W = 0.63 * 1.6;
 export const CARD_H = 0.88 * 1.6;

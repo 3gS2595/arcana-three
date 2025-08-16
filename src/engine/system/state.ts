@@ -21,7 +21,7 @@ export function createState(scene, trailsGroup, imageDeck) {
     makeCard(i) {
       const entry = deck[i];
       const built = makeImageCardMesh(entry?.texture, entry?.aspect ?? 1.0);
-      const trail = makeTrail(0xff0000, 40);
+      const trail = makeTrail(0x52a802, 20);
       trailsGroup.add(trail);
       scene.add(built.group);
       return {

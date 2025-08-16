@@ -129,7 +129,7 @@ function render() {
   if (typeof grassPatch !== "undefined") {
     // keep your existing follow logic if desired
   }
-
+  frameOverlay.setOpacity(.13);
   renderer.render(scene, camera);
   requestAnimationFrame(render);
 }
