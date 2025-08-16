@@ -5,7 +5,7 @@ import { CARD_T } from '../cards/mesh.js';
 /**
  * Creates a trail line (single polyline with a fixed-length buffer).
  */
-export function makeTrail(color = 0xff0000, maxPoints = 40) {
+export function makeTrail(color = 0x00ff00, maxPoints = 40) {
   const geom = new THREE.BufferGeometry();
   const positions = new Float32Array(maxPoints * 3);
   geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));

@@ -131,6 +131,7 @@ function render() {
   }
 
   renderer.render(scene, camera);
+  frameOverlay.setOpacity(0.2)
   requestAnimationFrame(render);
 }
 render();
